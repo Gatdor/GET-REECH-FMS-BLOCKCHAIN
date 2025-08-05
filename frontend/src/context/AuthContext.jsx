@@ -1,29 +1,39 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// src/context/AuthContext.jsx
+import React, { useState, useEffect, useContext, createContext, useRef, useCallback } from 'react';
+
 import { createClient } from '@supabase/supabase-js';
 import { get, set } from 'idb-keyval';
 import * as Sentry from '@sentry/react';
+import { debounce } from 'lodash';
 
 export const AuthContext = createContext();
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Initialize environment variables
+const env = import.meta.env.VITE_ENV || import.meta.env.NODE_ENV || import.meta.env.MODE || 'development';
 
 // Mock Supabase client for development
 const mockSupabase = {
   auth: {
     getUser: async () => {
-      console.log('Mock getUser called');
+      console.debug('[Auth] Mock getUser called');
       return { data: { user: null }, error: null };
     },
     signInWithPassword: async ({ email, password }) => {
-      console.log('Mock signInWithPassword:', { email, password });
+      console.debug('[Auth] Mock signInWithPassword:', { email, password });
       if (email === 'test@example.com' && password === 'password123') {
         return {
           data: {
             user: {
               id: 'mock-user-id',
               email,
-              user_metadata: { role: 'fisherman', email, name: 'Test User', national_id: '123456', phone: '1234567890' },
+              user_metadata: {
+                role: 'fisherman',
+                email,
+                name: 'Test User',
+                national_id: '123456',
+                phone: '+254712345678',
+              },
+              phone: '+254712345678',
             },
             session: {},
           },
@@ -33,22 +43,58 @@ const mockSupabase = {
       return { data: null, error: new Error('Invalid login credentials') };
     },
     signOut: async () => {
-      console.log('Mock signOut called');
+      console.debug('[Auth] Mock signOut called');
       return { error: null };
     },
     onAuthStateChange: (callback) => {
-      console.log('Mock onAuthStateChange initialized');
+      console.debug('[Auth] Mock onAuthStateChange initialized');
       setTimeout(() => callback('INITIAL_SESSION', { user: null, session: null }), 0);
       return {
-        data: { subscription: { unsubscribe: () => console.log('Mock auth listener unsubscribed') } },
+        data: { subscription: { unsubscribe: () => console.debug('[Auth] Mock auth listener unsubscribed') } },
       };
     },
   },
   from: () => ({
     select: () => ({
       eq: () => ({
+        order: () => ({
+          single: async () => ({
+            data: {
+              role: 'fisherman',
+              email: 'test@example.com',
+              name: 'Test User',
+              national_id: '123456',
+              phone: '+254712345678',
+            },
+            error: null,
+          }),
+          limit: () => ({
+            data: [
+              {
+                batch_id: 'mock-batch-1',
+                species: 'Tuna',
+                weight: 10,
+                price: 1000,
+                quality_score: 0.9,
+                image_urls: ['ipfs://mock-image'],
+                user_id: 'mock-user-id',
+                status: 'approved',
+                latitude: -4.0435,
+                longitude: 39.6682,
+                created_at: new Date().toISOString(),
+              },
+            ],
+            error: null,
+          }),
+        }),
         single: async () => ({
-          data: { role: 'fisherman', email: 'test@example.com', name: 'Test User', national_id: '123456', phone: '1234567890' },
+          data: {
+            role: 'fisherman',
+            email: 'test@example.com',
+            name: 'Test User',
+            national_id: '123456',
+            phone: '+254712345678',
+          },
           error: null,
         }),
       }),
@@ -56,68 +102,81 @@ const mockSupabase = {
   }),
 };
 
+
+
 // Validate environment variables
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Supabase URL or anon key missing in environment variables');
+const isDev = env === 'development';
+if (!isDev && (!supabaseUrl || !supabaseKey)) {
+  const error = new Error('Supabase URL or anon key missing. Falling back to mock client.');
+  console.warn('[Auth] ' + error.message);
+  Sentry.captureException(error);
 }
 
-export const supabase =
-  import.meta.env.VITE_NODE_ENV === 'development'
-    ? mockSupabase
-    : createClient(supabaseUrl, supabaseKey, {
-        auth: {
-          storage: {
-            getItem: async (key) => await get(key),
-            setItem: async (key, value) => await set(key, value),
-            removeItem: async (key) => await set(key, null),
-          },
-          persistSession: true,
+// Initialize Supabase client
+export const supabase = isDev || !supabaseUrl || !supabaseKey
+  ? mockSupabase
+  : createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        storage: {
+          getItem: async (key) => await get(key),
+          setItem: async (key, value) => await set(key, value),
+          removeItem: async (key) => await set(key, null),
         },
-      });
+        persistSession: true,
+      },
+    });
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isLoadingUser = useRef(false);
+  const lastUserHash = useRef(null);
 
-  // Timeout utility
-  const timeout = (promise, time, errorMessage = 'Auth request timed out') => {
-    let timer;
-    return Promise.race([
+  // Simplified timeout utility
+  const withTimeout = (promise, ms, errorMessage) =>
+    Promise.race([
       promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(errorMessage)), time);
-      }),
-    ]).finally(() => clearTimeout(timer));
-  };
+      new Promise((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms)),
+    ]);
 
-  const loadUser = async () => {
+  // Debounced loadUser
+  const loadUser = debounce(async () => {
+    if (isLoadingUser.current) {
+      console.debug('[Auth] loadUser already in progress, skipping');
+      return;
+    }
+    isLoadingUser.current = true;
+    setLoading(true);
     try {
-      console.log('loadUser started');
+      console.debug('[Auth] loadUser started');
       const cachedUser = await get('user').catch((err) => {
-        console.warn('Failed to access idb-keyval:', err.message);
+        console.warn('[Auth] Failed to access idb-keyval:', err.message);
         Sentry.captureException(err);
         return null;
       });
-      if (cachedUser && isOnline) {
-        console.log('Loaded cached user:', JSON.stringify(cachedUser, null, 2));
+
+      if (cachedUser && !isOnline) {
+        console.debug('[Auth] Using cached user (offline):', cachedUser);
         setUser(cachedUser);
         setLoading(false);
         return;
       }
 
-      console.log('Checking auth user...');
-      const { data: { user }, error: userError } = await timeout(
+      console.debug('[Auth] Fetching auth user...');
+      const { data: { user }, error: userError } = await withTimeout(
         supabase.auth.getUser(),
         5000,
         'Failed to fetch user'
       );
+
       if (userError) {
-        console.warn('getUser error:', userError.message);
+        console.warn('[Auth] getUser error:', userError.message);
+        Sentry.captureException(userError);
         if (userError.message.includes('Auth session missing')) {
           setUser(null);
-          await set('user', null).catch((err) => console.warn('Failed to clear idb-keyval:', err.message));
+          await set('user', null).catch((err) => console.warn('[Auth] Failed to clear idb-keyval:', err.message));
           setLoading(false);
           return;
         }
@@ -125,100 +184,148 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (user) {
-        console.log('Fetching user profile for user ID:', user.id);
-        const { data: profiles, error: profileError } = await timeout(
-          supabase
-            .from('profiles')
-            .select('role, email, name, national_id, phone')
-            .eq('id', user.id),
-          5000,
-          'Failed to fetch profile'
-        );
+        console.debug('[Auth] Fetching user profile for user ID:', user.id);
+        let userWithRole = { ...user };
 
-        if (profileError) {
-          console.warn('Profile fetch failed:', profileError.message);
-          Sentry.captureException(profileError);
-          setError('Failed to fetch user profile');
-          // Fallback to user metadata
-          const userWithMetadata = {
-            ...user,
-            role: user.user_metadata?.role || 'fisherman',
-            email: user.user_metadata?.email || user.email,
-            name: user.user_metadata?.name || '',
-            national_id: user.user_metadata?.national_id || '',
-            phone: user.user_metadata?.phone || '',
-          };
-          console.log('Using user metadata as fallback:', JSON.stringify(userWithMetadata, null, 2));
-          setUser(userWithMetadata);
-          await set('user', userWithMetadata).catch((err) => console.warn('Failed to set idb-keyval:', err.message));
-        } else if (profiles && profiles.length === 1) {
-          const profile = profiles[0];
-          const userWithRole = {
-            ...user,
-            role: profile.role || user.user_metadata?.role || 'fisherman',
-            email: profile.email || user.user_metadata?.email || user.email,
-            name: profile.name || user.user_metadata?.name || '',
-            national_id: profile.national_id || user.user_metadata?.national_id || '',
-            phone: profile.phone || user.user_metadata?.phone || '',
-          };
-          console.log('Loaded user:', JSON.stringify(userWithRole, null, 2));
-          setUser(userWithRole);
-          await set('user', userWithRole).catch((err) => console.warn('Failed to set idb-keyval:', err.message));
+        if (isOnline && !isDev) {
+          const { data: profile, error: profileError } = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('role, email, name, national_id, phone')
+              .eq('id', user.id)
+              .single(),
+            5000,
+            'Failed to fetch profile'
+          );
+
+          if (profileError) {
+            console.warn('[Auth] Profile fetch failed:', profileError.message);
+            Sentry.captureException(profileError);
+            // Fallback to user_metadata if profile fetch fails
+            userWithRole = {
+              ...user,
+              user_metadata: {
+                role: user.user_metadata?.role || 'fisherman',
+                email: user.user_metadata?.email || user.email,
+                name: user.user_metadata?.name || '',
+                national_id: user.user_metadata?.national_id || '',
+                phone: user.user_metadata?.phone || user.phone || '',
+              },
+              phone: user.user_metadata?.phone || user.phone || '',
+            };
+          } else {
+            userWithRole = {
+              ...user,
+              user_metadata: {
+                role: profile?.role || user.user_metadata?.role || 'fisherman',
+                email: profile?.email || user.email,
+                name: profile?.name || user.user_metadata?.name || '',
+                national_id: profile?.national_id || user.user_metadata?.national_id || '',
+                phone: profile?.phone || user.user_metadata?.phone || user.phone || '',
+              },
+              phone: profile?.phone || user.user_metadata?.phone || user.phone || '',
+            };
+            // Insert profile if none exists
+            if (!profile) {
+              console.debug('[Auth] No profile found, inserting new profile');
+              await supabase.from('profiles').insert({
+                id: user.id,
+                role: user.user_metadata?.role || 'fisherman',
+                email: user.email,
+                name: user.user_metadata?.name || '',
+                national_id: user.user_metadata?.national_id || '',
+                phone: user.user_metadata?.phone || user.phone || '',
+              });
+            }
+          }
         } else {
-          console.warn('Profile fetch returned unexpected rows:', profiles ? profiles.length : 0);
-          Sentry.captureMessage(`Profile fetch returned ${profiles ? profiles.length : 0} rows for user ID ${user.id}`);
-          setError('Invalid profile data');
-          const userWithMetadata = {
+          console.debug('[Auth] Using user metadata (offline or dev):', user);
+          userWithRole = {
             ...user,
-            role: user.user_metadata?.role || 'fisherman',
-            email: user.user_metadata?.email || user.email,
-            name: user.user_metadata?.name || '',
-            national_id: user.user_metadata?.national_id || '',
-            phone: user.user_metadata?.phone || '',
+            user_metadata: {
+              role: user.user_metadata?.role || 'fisherman',
+              email: user.user_metadata?.email || user.email,
+              name: user.user_metadata?.name || '',
+              national_id: user.user_metadata?.national_id || '',
+              phone: user.user_metadata?.phone || user.phone || '',
+            },
+            phone: user.user_metadata?.phone || user.phone || '',
           };
-          console.log('Using user metadata as fallback:', JSON.stringify(userWithMetadata, null, 2));
-          setUser(userWithMetadata);
-          await set('user', userWithMetadata).catch((err) => console.warn('Failed to set idb-keyval:', err.message));
+        }
+
+        const userHash = JSON.stringify(userWithRole);
+        if (lastUserHash.current !== userHash) {
+          console.debug('[Auth] Loaded user:', userWithRole);
+          setUser(userWithRole);
+          await set('user', userWithRole).catch((err) => console.warn('[Auth] Failed to set idb-keyval:', err.message));
+          lastUserHash.current = userHash;
+        } else {
+          console.debug('[Auth] No user change, skipping state update');
         }
       } else {
-        console.log('No user found from getUser');
+        console.debug('[Auth] No user found from getUser');
         setUser(null);
-        await set('user', null).catch((err) => console.warn('Failed to clear idb-keyval:', err.message));
+        await set('user', null).catch((err) => console.warn('[Auth] Failed to clear idb-keyval:', err.message));
       }
     } catch (error) {
-      console.error('Error loading user:', error.message);
+      console.error('[Auth] Error loading user:', error.message);
       Sentry.captureException(error);
       setError(error.message || 'Failed to load user');
       setUser(null);
-      await set('user', null).catch((err) => console.warn('Failed to clear idb-keyval:', err.message));
+      await set('user', null).catch((err) => console.warn('[Auth] Failed to clear idb-keyval:', err.message));
     } finally {
-      console.log('loadUser completed, setting loading to false');
+      console.debug('[Auth] loadUser completed');
       setLoading(false);
+      isLoadingUser.current = false;
+    }
+  }, 300);
+
+  // Logout function
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+      setError(null);
+      lastUserHash.current = null;
+      await set('user', null).catch((err) => console.warn('[Auth] Failed to clear idb-keyval:', err.message));
+    } catch (error) {
+      console.error('[Auth] Logout error:', error.message);
+      Sentry.captureException(error);
+      setError(error.message || 'Failed to logout');
     }
   };
 
-  useEffect(() => {
-    console.log('AuthProvider useEffect triggered');
-    loadUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth event:', event, JSON.stringify(session, null, 2));
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        await loadUser();
+  // Debounce auth state changes to prevent duplicates
+  const handleAuthStateChange = useCallback(
+    debounce((event, session) => {
+      console.debug('[Auth] Auth event:', event, session);
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        loadUser();
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
+        console.debug('[Auth] User signed out');
         setUser(null);
         setError(null);
-        await set('user', null).catch((err) => console.warn('Failed to clear idb-keyval:', err.message));
+        lastUserHash.current = null;
+        set('user', null).catch((err) => console.warn('[Auth] Failed to clear idb-keyval:', err.message));
       }
-    });
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    console.debug('[Auth] AuthProvider useEffect triggered');
+    loadUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     const handleOnline = () => {
-      console.log('Network status: online');
+      console.debug('[Auth] Network status: online');
       setIsOnline(true);
+      loadUser();
     };
     const handleOffline = () => {
-      console.log('Network status: offline');
+      console.debug('[Auth] Network status: offline');
       setIsOnline(false);
     };
 
@@ -226,15 +333,17 @@ export const AuthProvider = ({ children }) => {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      console.log('Cleaning up AuthProvider useEffect');
-      authListener.subscription.unsubscribe();
+      console.debug('[Auth] Cleaning up AuthProvider useEffect');
+      authListener.subscription?.unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      loadUser.cancel();
+      handleAuthStateChange.cancel();
     };
-  }, []);
+  }, [handleAuthStateChange]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, supabase, isOnline, loading, error, setError }}>
+    <AuthContext.Provider value={{ user, setUser, supabase, isOnline, loading, error, setError, logout }}>
       {children}
     </AuthContext.Provider>
   );
