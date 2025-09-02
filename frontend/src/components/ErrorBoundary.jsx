@@ -1,27 +1,28 @@
-// src/components/ErrorBoundary.jsx
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import * as Sentry from '@sentry/react';
 
 class ErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    Sentry.captureException(error, { extra: errorInfo });
+  }
+
   render() {
-    const { t } = this.props;
     if (this.state.hasError) {
       return (
-        <div className="error-container">
-          <h1>{t('errorTitle', 'Something went wrong')}</h1>
-          <p>{this.state.error?.message}</p>
-          <button
-            className="btn btn-primary"
-            onClick={() => window.location.reload()}
-          >
-            {t('refresh', 'Refresh')}
-          </button>
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <h1>Something went wrong.</h1>
+          <p>{this.state.error?.message || 'Unknown error'}</p>
+          <button onClick={() => window.location.reload()}>Reload</button>
         </div>
       );
     }
@@ -29,7 +30,4 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export default (props) => {
-  const { t } = useTranslation();
-  return <ErrorBoundary {...props} t={t} />;
-};
+export default ErrorBoundary; 

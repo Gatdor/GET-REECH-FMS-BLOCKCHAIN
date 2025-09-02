@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useCallback } from 'react';
-import { Outlet, NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
+import React, { useContext, useEffect, useCallback, useState } from 'react';
+import { Routes, Route, NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
@@ -7,6 +7,16 @@ import { useAuth } from './context/AuthContext';
 import { ThemeContext } from './context/ThemeContext';
 import * as Sentry from '@sentry/react';
 import { get, set } from 'idb-keyval';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Privacy from './pages/Privacy';
+import CatchLog from './pages/CatchLog';
+import Dashboard from './pages/Dashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminCatchLogs from './pages/AdminCatchLogs';
+import Market from './pages/Market';
 
 // Page transition animations
 const pageVariants = {
@@ -20,7 +30,7 @@ const pageTransition = {
   ease: 'easeInOut',
 };
 
-// Styled components (unchanged for brevity)
+// Styled components with fixed media queries
 const AppWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -42,7 +52,7 @@ const Header = styled.header`
   top: 0;
   z-index: 1000;
   border-bottom: 1px solid ${({ theme }) => theme.border || '#edf2f7'};
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     padding: 0.75rem 1rem;
   }
 `;
@@ -55,7 +65,7 @@ const Nav = styled.nav`
   margin: 0 auto;
   flex-wrap: wrap;
   gap: 1rem;
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.5rem 0;
@@ -83,13 +93,13 @@ const StyledNavLink = styled(motion.create(RouterNavLink))`
     outline: 2px solid ${({ theme }) => theme.primary || '#2b6cb0'};
     outline-offset: 2px;
   }
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     font-size: 0.95rem;
     padding: 0.5rem 1rem;
     width: 100%;
     text-align: center;
   }
-  @media (min-width: 1280px) {
+  @media screen and (min-width: 1280px) {
     font-size: 1.2rem;
     padding: 0.75rem 2rem;
   }
@@ -113,7 +123,7 @@ const LanguageButton = styled(motion.button)`
     outline: 2px solid ${({ theme }) => theme.primary || '#2b6cb0'};
     outline-offset: 2px;
   }
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     font-size: 0.9rem;
     padding: 0.4rem 0.8rem;
   }
@@ -150,12 +160,12 @@ const Button = styled(motion.button)`
     outline: 2px solid ${({ theme }) => theme.primary || '#2b6cb0'};
     outline-offset: 2px;
   }
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     font-size: 0.95rem;
     padding: 0.5rem 1rem;
     width: 100%;
   }
-  @media (min-width: 1280px) {
+  @media screen and (min-width: 1280px) {
     font-size: 1.2rem;
     padding: 0.75rem 2rem;
   }
@@ -173,12 +183,12 @@ const Main = styled(motion.main)`
   background: ${({ theme }) => theme.card || '#ffffff'};
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     padding: 1rem;
     margin: 1rem 0.5rem;
     border-radius: 8px;
   }
-  @media (min-width: 1280px) {
+  @media screen and (min-width: 1280px) {
     padding: 3rem;
     margin: 2rem auto;
   }
@@ -204,7 +214,7 @@ const LoadingSpinner = styled.div`
   width: 40px;
   height: 40px;
   animation: spin 1s linear infinite;
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     width: 32px;
     height: 32px;
     border-width: 3px;
@@ -228,12 +238,12 @@ const ErrorWrapper = styled.div`
   text-align: center;
   gap: 1rem;
   padding: 1.5rem;
-  @media (max-width: 768px) {
+  @media screen and (max-width: 768px) {
     font-size: 1rem;
     gap: 0.75rem;
     padding: 1rem;
   }
-  @media (min-width: 1280px) {
+  @media screen and (min-width: 1280px) {
     font-size: 1.5rem;
     gap: 1.5rem;
   }
@@ -241,60 +251,65 @@ const ErrorWrapper = styled.div`
 
 const App = () => {
   const { t, i18n } = useTranslation();
-  const { user, supabase, loading, error, isOnline, setError } = useAuth();
+  const { user, supabase, logout, loading, error, isOnline, setError } = useAuth();
   const { theme } = useContext(ThemeContext);
   const navigate = useNavigate();
-  const [authLoading, setAuthLoading] = React.useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Sync offline updates
   const syncOfflineUpdates = useCallback(async () => {
     if (!isOnline || !user) return;
     try {
-      const updates = await get('offlineProfileUpdates') || [];
+      const updates = (await get('offlineProfileUpdates')) || [];
       for (const update of updates) {
         if (update.user_id === user.id) {
-          const { error: dbError } = await supabase.from('profiles').update({
-            name: update.name,
-            national_id: update.national_id,
-            phone: update.phone,
-          }).eq('id', user.id);
+          const { error: dbError } = await supabase
+            .from('profiles')
+            .update({
+              name: update.name,
+              national_id: update.national_id,
+              phone: update.phone,
+            })
+            .eq('id', user.id);
           if (!dbError) {
-            await set('offlineProfileUpdates', updates.filter(u => u.user_id !== user.id));
+            await set('offlineProfileUpdates', updates.filter((u) => u.user_id !== user.id));
           }
         }
       }
     } catch (err) {
+      console.error('[App] Offline sync error:', err.message);
       Sentry.captureException(err);
-      console.error('Offline sync error:', err.message);
     }
   }, [isOnline, user, supabase]);
 
   // Debug auth state and sync offline updates
   useEffect(() => {
-    console.log('Auth State:', JSON.stringify({ user, loading, error, isOnline }, null, 2));
+    console.log('[App] Auth State:', JSON.stringify({ user, loading, error, isOnline }, null, 2));
+    console.log('[App] User Phone:', user?.user_metadata?.phone);
     syncOfflineUpdates();
   }, [user, loading, error, isOnline, syncOfflineUpdates]);
 
   // Handle auth state changes
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event, JSON.stringify(session, null, 2));
+      console.log('[App] Auth event:', event, JSON.stringify(session, null, 2));
       if (event === 'SIGNED_IN' && session?.user) {
-        navigate(session.user.role === 'admin' ? '/dashboard' : '/log-catch', { replace: true });
+        navigate(session.user.user_metadata?.role === 'admin' ? '/dashboard' : '/log-catch', {
+          replace: true,
+        });
       } else if (event === 'SIGNED_OUT') {
         navigate('/login', { replace: true });
       }
     });
-    return () => authListener.subscription.unsubscribe();
+    return () => authListener.subscription?.unsubscribe();
   }, [supabase, navigate]);
 
   const handleLogout = async () => {
     try {
       setAuthLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await logout();
     } catch (err) {
-      console.error('Logout error:', err.message);
+      console.error('[App] Logout error:', err.message);
       Sentry.captureException(err);
       setError(t('app.error', { message: err.message }));
     } finally {
@@ -367,12 +382,12 @@ const App = () => {
             {user && (
               <>
                 <StyledNavLink
-                  to={user.role === 'admin' ? '/dashboard' : '/log-catch'}
+                  to={user.user_metadata?.role === 'admin' ? '/dashboard' : '/log-catch'}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  aria-label={t(user.role === 'Admin' ? 'Dashboard' : 'LogCatch')}
+                  aria-label={t(user.user_metadata?.role === 'admin' ? 'Dashboard' : 'LogCatch')}
                 >
-                  {t(user.role === 'Admin' ? 'Dashboard' : 'LogCatch')}
+                  {t(user.user_metadata?.role === 'admin' ? 'Dashboard' : 'LogCatch')}
                 </StyledNavLink>
                 <StyledNavLink
                   to="/market"
@@ -458,7 +473,19 @@ const App = () => {
         exit="exit"
         transition={pageTransition}
       >
-        <Outlet />
+        <Routes>
+          <Route index element={<Home />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<Register />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="privacy" element={<Privacy />} />
+          <Route path="log-catch" element={<CatchLog />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="admin/users" element={<AdminUsers />} />
+          <Route path="admin/catch-logs" element={<AdminCatchLogs />} />
+          <Route path="admin/market" element={<Market />} />
+          <Route path="market" element={<Market />} />
+        </Routes>
       </Main>
     </AppWrapper>
   );
