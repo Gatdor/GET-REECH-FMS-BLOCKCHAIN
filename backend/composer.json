@@ -4,11 +4,14 @@
   "description": "FMS Backend",
   "require": {
     "php": "^8.0",
-    "fruitcake/laravel-cors": "^2.2",
-    "kornrunner/php-ipfs-api": "^1.0",
-    "laravel/framework": "^9.0",
+    "fruitcake/laravel-cors": "^3.0",
+    "cloutier/php-ipfs-api": "^0.0.6",
+    "laravel/framework": "^8.83",
+     "nesbot/carbon": "^2.62.1",
+    "supabase/supabase-php": "^0.0.3",
+    "laravel/tinker": "^2.10",
     "laravel/sanctum": "^2.15",
-    "nunomaduro/collision": "^6.0"
+    "doctrine/dbal": "^2.13"
   },
   "require-dev": {
     "fakerphp/faker": "^1.9.1",

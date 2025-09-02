@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
 import * as Sentry from '@sentry/react';
 
-// Shared Styles from Home.jsx
 const commonStyles = css`
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -19,11 +18,7 @@ const commonStyles = css`
 const clampFontSize = (min, vw, max) => `clamp(${min}rem, ${vw}vw, ${max}rem)`;
 
 const GradientButton = css`
-  background: linear-gradient(
-    90deg,
-    ${({ theme }) => theme.primary || '#1E3A8A'} 0%,
-    ${({ theme }) => theme.primaryHover || '#3B82F6'} 100%
-  );
+  background: linear-gradient(90deg, ${({ theme }) => theme.primary || '#1E3A8A'} 0%, ${({ theme }) => theme.primaryHover || '#3B82F6'} 100%);
   color: white;
   border: none;
   padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 2.5vw, 2rem);
@@ -31,11 +26,7 @@ const GradientButton = css`
   font-weight: 600;
   cursor: pointer;
   &:hover {
-    background: linear-gradient(
-      90deg,
-      ${({ theme }) => theme.primaryHover || '#2563EB'} 0%,
-      #1E3A8A 100%
-    );
+    background: linear-gradient(90deg, ${({ theme }) => theme.primaryHover || '#2563EB'} 0%, #1E3A8A 100%);
   }
   &:disabled {
     background: ${({ theme }) => theme.textSecondary || '#6B7280'};
@@ -44,19 +35,14 @@ const GradientButton = css`
   }
 `;
 
-// Styled Components
-const LoginWrapper = styled.div`
+const LoginWrapper = styled(motion.div)`
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(
-    135deg,
-    ${({ theme }) => theme.background || '#F1F5F9'} 0%,
-    ${({ theme }) => theme.backgroundSecondary || '#E2E8F0'} 100%
-  );
+  background: linear-gradient(135deg, ${({ theme }) => theme.background || '#F1F5F9'} 0%, ${({ theme }) => theme.backgroundSecondary || '#E2E8F0'} 100%);
   padding: clamp(1rem, 3vw, 2rem);
-  @media (maxWidth: 768px) {
+  @media (max-width: 768px) {
     padding: clamp(0.5rem, 2vw, 1rem);
   }
 `;
@@ -68,7 +54,7 @@ const LoginCard = styled(motion.div)`
   max-width: 600px;
   width: 100%;
   border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
-  @media (maxWidth: 768px) {
+  @media (max-width: 768px) {
     padding: clamp(1rem, 2vw, 1.25rem);
     margin: 0 clamp(0.5rem, 2vw, 1rem);
     border-radius: 8px;
@@ -195,39 +181,36 @@ const LoadingSpinner = styled(motion.div)`
   }
 `;
 
-const SIGN_IN_TIMEOUT_MS = 30000; // 30-second timeout
-const PROFILE_FETCH_TIMEOUT_MS = 10000; // 10-second timeout
+const LOGIN_TIMEOUT_MS = 30000;
 
 const Login = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, supabase, isOnline, loading: authLoading, error: authError, setError } = useAuth();
+  const { user, login, isOnline, loading: authLoading, error: authError, setError } = useAuth();
   const { theme } = useContext(ThemeContext);
   const [formData, setFormData] = useState({ email: '', password: '', role: '' });
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Timeout utility
   const timeout = useCallback(
     (promise, time) => {
       let timer;
       return Promise.race([
         promise,
         new Promise((_, reject) => {
-          timer = setTimeout(() => reject(new Error(t('login.errors.timeout'))), time);
+          timer = setTimeout(() => reject(new Error(t('login.errors.timeout', 'Login request timed out. Please try again.'))), time);
         }),
       ]).finally(() => clearTimeout(timer));
     },
     [t]
   );
 
-  // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      console.log('[Login] User Phone:', user?.user_metadata?.phone);
-      console.log('[Login] Redirecting user:', JSON.stringify(user, null, 2));
-      navigate(user.user_metadata?.role === 'admin' ? '/dashboard' : '/log-catch', { replace: true });
+      console.log('[Login] User:', JSON.stringify(user, null, 2));
+      const redirectPath = user.role === 'admin' ? '/admin/dashboard' : user.role === 'buyer' ? '/market' : '/fisherman-dashboard';
+      navigate(redirectPath, { replace: true });
     }
   }, [user, authLoading, navigate]);
 
@@ -244,97 +227,40 @@ const Login = () => {
     setSuccess('');
     setError(null);
 
-    // Validate inputs
     if (!isOnline) {
-      setLocalError(t('login.errors.offline'));
+      setLocalError(t('login.errors.offline', 'You are offline. Please connect to the internet.'));
       return;
     }
     if (!formData.email.trim()) {
-      setLocalError(t('login.errors.emailRequired'));
+      setLocalError(t('login.errors.emailRequired', 'Email is required.'));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setLocalError(t('login.errors.invalidEmail'));
+      setLocalError(t('login.errors.invalidEmail', 'Please enter a valid email address.'));
       return;
     }
     if (!formData.password || formData.password.length < 6) {
-      setLocalError(t('login.errors.passwordRequired'));
+      setLocalError(t('login.errors.passwordRequired', 'Password must be at least 6 characters.'));
       return;
     }
     if (!formData.role) {
-      setLocalError(t('login.errors.roleRequired'));
+      setLocalError(t('login.errors.roleRequired', 'Please select a role.'));
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('[Login] Starting signInWithPassword with email:', formData.email);
-      const { data, error } = await timeout(
-        supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        }),
-        SIGN_IN_TIMEOUT_MS
-      );
-
-      if (error) {
-        console.error('[Login] Login error:', error.message);
-        Sentry.captureException(error);
-        if (error.message.includes('Invalid login')) {
-          setLocalError(t('login.errors.invalidCredentials'));
-        } else {
-          setLocalError(t('login.errors.generic'));
-          setError(error.message);
-        }
-        return;
-      }
-
-      if (!data || !data.user) {
-        console.error('[Login] Login error: No user returned');
-        Sentry.captureMessage('Login failed: No user returned');
-        setLocalError(t('login.errors.noUser'));
-        setError(t('login.errors.noUser'));
-        return;
-      }
-
-      console.log('[Login] Login successful:', JSON.stringify(data.user, null, 2));
-      console.time('ProfileFetch');
-      const { data: profile, error: profileError } = await timeout(
-        supabase
-          .from('profiles')
-          .select('role, email, name, national_id, phone')
-          .eq('id', data.user.id)
-          .maybeSingle(),
-        PROFILE_FETCH_TIMEOUT_MS
-      );
-      console.timeEnd('ProfileFetch');
-      console.log('[Login] Profile fetch response:', JSON.stringify({ profile, error: profileError }, null, 2));
-
-      if (profileError) {
-        console.warn('[Login] Profile fetch failed:', profileError.message);
-        Sentry.captureException(profileError);
-        setLocalError(t('login.errors.profileFetch'));
-        setError(t('login.errors.profileFetch'));
-        return;
-      }
-
-      // Validate selected role against profile or user_metadata
-      const userRole = profile?.role || data.user.user_metadata?.role || 'fisherman';
-      if (formData.role !== userRole) {
-        setLocalError(t('login.errors.roleMismatch', { selectedRole: formData.role, actualRole: userRole }));
-        setError(t('login.errors.roleMismatch', { selectedRole: formData.role, actualRole: userRole }));
-        return;
-      }
-
-      console.log('[Login] User Phone:', data.user.user_metadata?.phone || profile?.phone);
-      setSuccess(t('login.success.login', { role: userRole }));
-      navigate(userRole === 'admin' ? '/dashboard' : '/log-catch', { replace: true });
+      console.log('[Login] Starting login with email:', formData.email);
+      await timeout(login(formData.email, formData.password, formData.role), LOGIN_TIMEOUT_MS);
+      setSuccess(t('login.success.login', { role: formData.role }));
+      // Navigation is handled by useEffect
     } catch (error) {
       console.error('[Login] Error:', error.message);
       Sentry.captureException(error);
-      setLocalError(error.message || t('login.errors.generic'));
-      setError(error.message || t('login.errors.generic'));
+      const errorMessage = error.message || t('login.errors.generic', 'An error occurred during login.');
+      setLocalError(errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -350,21 +276,12 @@ const Login = () => {
   };
 
   return (
-    <LoginWrapper theme={theme}>
-      <LoginCard
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Title>{t('login.title')}</Title>
+    <LoginWrapper theme={theme} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      <LoginCard initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Title>{t('login.title', 'Login')}</Title>
         <AnimatePresence>
           {(localError || authError) && (
-            <ErrorMessage
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              role="alert"
-            >
+            <ErrorMessage initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} role="alert">
               {localError || authError}
               {(localError === t('login.errors.timeout') || authError === t('login.errors.timeout')) && (
                 <Button
@@ -374,18 +291,13 @@ const Login = () => {
                   whileTap={{ scale: 0.95 }}
                   style={{ marginTop: '0.5rem' }}
                 >
-                  {t('login.retry')}
+                  {t('login.retry', 'Retry')}
                 </Button>
               )}
             </ErrorMessage>
           )}
           {success && (
-            <SuccessMessage
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              role="alert"
-            >
+            <SuccessMessage initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} role="alert">
               {success}
             </SuccessMessage>
           )}
@@ -393,11 +305,11 @@ const Login = () => {
         <Form onSubmit={handleSubmit}>
           <FormGroup>
             <Label htmlFor="email">
-              {t('login.email')}
+              {t('login.email', 'Email')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="email-tip"
-                data-tooltip-content={t('login.tooltips.email')}
+                data-tooltip-content={t('login.tooltips.email', 'Enter your registered email address.')}
                 style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
@@ -407,7 +319,7 @@ const Login = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder={t('login.placeholders.email')}
+              placeholder={t('login.placeholders.email', 'Enter your email')}
               required
               aria-describedby="email-tip"
               disabled={loading || authLoading}
@@ -416,11 +328,11 @@ const Login = () => {
           </FormGroup>
           <FormGroup>
             <Label htmlFor="password">
-              {t('login.password')}
+              {t('login.password', 'Password')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="password-tip"
-                data-tooltip-content={t('login.tooltips.password')}
+                data-tooltip-content={t('login.tooltips.password', 'Password must be at least 6 characters.')}
                 style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
@@ -430,7 +342,7 @@ const Login = () => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder={t('login.placeholders.password')}
+              placeholder={t('login.placeholders.password', 'Enter your password')}
               required
               aria-describedby="password-tip"
               disabled={loading || authLoading}
@@ -439,11 +351,11 @@ const Login = () => {
           </FormGroup>
           <FormGroup>
             <Label htmlFor="role">
-              {t('login.role')}
+              {t('login.role', 'Role')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="role-tip"
-                data-tooltip-content={t('login.tooltips.role')}
+                data-tooltip-content={t('login.tooltips.role', 'Select your account type.')}
                 style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
@@ -455,9 +367,10 @@ const Login = () => {
               required
               disabled={loading || authLoading}
             >
-              <option value="">{t('login.placeholders.role')}</option>
-              <option value="admin">{t('register.roles.admin')}</option>
-              <option value="fisherman">{t('register.roles.fisherman')}</option>
+              <option value="">{t('login.placeholders.role', 'Select role')}</option>
+              <option value="admin">{t('register.roles.admin', 'Admin')}</option>
+              <option value="fisherman">{t('register.roles.fisherman', 'Fisherman')}</option>
+              <option value="buyer">{t('register.roles.buyer', 'Buyer')}</option>
             </Select>
             <Tooltip id="role-tip" />
           </FormGroup>
@@ -472,7 +385,7 @@ const Login = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  {t('login.button')}
+                  {t('login.button', 'Login')}
                 </Button>
                 <CancelButton
                   type="button"
@@ -481,7 +394,7 @@ const Login = () => {
                   whileTap={{ scale: 0.95 }}
                   disabled={loading || authLoading}
                 >
-                  {t('cancel')}
+                  {t('login.cancel', 'Cancel')}
                 </CancelButton>
               </>
             )}

@@ -16,6 +16,7 @@
         "postcss": "^8.1.14"
     },
     "dependencies": {
-        "ipfs-http-client": "^60.0.1"
+        "ipfs-http-client": "^60.0.1",
+        "pg": "^8.16.3"
     }
 }

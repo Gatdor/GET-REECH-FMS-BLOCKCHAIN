@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { LogOut } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom'; // Added Link import
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

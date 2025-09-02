@@ -1,415 +1,135 @@
 {
-  "app": {
-    "logout": "Logout",
-    "error": "Error: {message}",
-    "retry": "Retry"
-  },
-  "register": {
-    "title": "Register",
-    "email": "Email",
-    "password": "Password",
-    "name": "Name",
-    "nationalId": "National ID",
-    "phone": "Phone Number",
-    "role": "Role",
-    "button": "Register",
-    "submitting": "Registering...",
-    "success": {
-      "emailConfirmation": "Registration successful! Please check your email to confirm your account."
-    },
-    "errors": {
-      "emailRequired": "Email is required",
-      "invalidEmail": "Invalid email format",
-      "passwordRequired": "Password must be at least 6 characters",
-      "nameRequired": "Name is required",
-      "nationalIdRequired": "National ID must be at least 8 digits",
-      "invalidPhone": "Phone number must be in the format +2547XXXXXXXX",
-      "invalidRole": "Invalid role selected",
-      "offline": "Offline mode: Registration saved for sync",
-      "timeout": "Registration timed out. Please try again.",
-      "generic": "An error occurred during registration"
-    },
-    "tooltips": {
-      "email": "Enter a valid email address",
-      "password": "Password must be at least 6 characters",
-      "name": "Enter your full name",
-      "nationalId": "Enter your national ID number",
-      "phone": "Enter your phone number (e.g., +2547XXXXXXXX)",
-      "role": "Select your role: fisherman or admin"
-    },
-    "placeholders": {
-      "email": "Enter your email",
-      "password": "Enter your password",
-      "name": "Enter your name",
-      "nationalId": "Enter your national ID",
-      "phone": "Enter your phone number"
-    },
-    "roles": {
-      "fisherman": "Fisherman",
-      "admin": "Admin"
-    }
-  },
-  "login": {
-    "title": "Login",
-    "email": "Email",
-    "password": "Password",
-    "button": "Login",
-    "submitting": "Logging in...",
-    "cancel": "Cancel",
-    "resendConfirmation": "Resend Confirmation Email",
-    "success": {
-      "resendConfirmation": "Confirmation email resent. Please check your inbox.",
-      "login": "Logged in successfully as {role}."
-    },
-    "errors": {
-      "emailRequired": "Email is required",
-      "invalidEmail": "Invalid email format",
-      "passwordRequired": "Password is required",
-      "emailNotConfirmed": "Please confirm your email before logging in.",
-      "invalidCredentials": "Invalid email or password",
-      "profileFetch": "Failed to fetch user profile. Please try again.",
-      "resendFailed": "Failed to resend confirmation email. Please try again.",
-      "offline": "Offline mode: Please connect to the internet",
-      "timeout": "Login timed out. Please try again.",
-      "cancelled": "Login cancelled.",
-      "generic": "An error occurred during login"
-    },
-    "tooltips": {
-      "email": "Enter your registered email address",
-      "password": "Enter your password"
-    },
-    "placeholders": {
-      "email": "Enter your email",
-      "password": "Enter your password"
-    }
-  },
-  "home": {
-    "title": "Home",
-    "subtitle": "Track, manage, and trade your catch with ease.",
-    "welcome": "Welcome, {role}!",
-    "register": "Register",
-    "login": "Login",
-    "logCatch": "Log Catch",
-    "dashboard": "Dashboard",
-    "exploreMarket": "Explore Market",
-    "recentListings": "Recent Catch Listings",
-    "listingTitle": "{species} (Batch ID: {batchId})",
-    "weight": "Weight: {weight} kg",
-    "price": "Price: ${price}",
-    "qualityScore": "Quality Score: {score}%",
-    "imageAlt": "Image of {species}",
-    "loading": "Loading listings...",
-    "noListings": "No recent listings available",
-    "errors": {
-      "invalidData": "Some catch log data is invalid",
-      "unauthenticated": "Please log in to view listings",
-      "offline": "Offline mode: Listings unavailable",
-      "generic": "An error occurred while fetching listings"
-    },
-    "tooltips": {
-      "register": "Create a new account",
-      "login": "Log in to your account",
-      "logCatch": "Log a new catch",
-      "dashboard": "Manage catches and users",
-      "market": "Browse the marketplace"
-    },
-    "footer": {
-      "about": "About",
-      "privacy": "Privacy"
-    }
-  },
-  "profile": {
-    "title": "Profile",
-    "welcome": "Welcome, {role}!",
-    "name": "Name",
-    "nationalId": "National ID",
-    "phone": "Phone Number",
-    "role": "Role",
-    "submit": "Update Profile",
-    "submitting": "Updating...",
-    "success": "Profile updated successfully.",
-    "successOffline": "Profile update saved for sync when online.",
-    "errors": {
-      "nameRequired": "Name is required",
-      "invalidNationalId": "National ID must be at least 8 digits",
-      "invalidPhone": "Phone number must be in the format +2547XXXXXXXX",
-      "generic": "An error occurred while updating your profile"
-    },
-    "tooltips": {
-      "name": "Enter your full name",
-      "nationalId": "Enter your national ID number",
-      "phone": "Enter your phone number (e.g., +2547XXXXXXXX)",
-      "role": "Your assigned role"
-    },
-    "placeholders": {
-      "name": "Enter your name",
-      "nationalId": "Enter your national ID",
-      "phone": "Enter your phone number"
-    },
-    "roles": {
-      "fisherman": "Fisherman",
-      "admin": "Admin"
-    }
-  },
-  "logCatch": {
-    "title": "Log Catch",
-    "species": "Species",
-    "weight": "Weight (kg)",
-    "price": "Price ($)",
-    "qualityScore": "Quality Score (0-100%)",
-    "images": "Upload Images",
-    "submit": "Submit Catch",
-    "submitting": "Submitting...",
-    "success": "Catch logged successfully.",
-    "successOffline": "Catch saved for sync when online.",
-    "errors": {
-      "speciesRequired": "Species is required",
-      "invalidWeight": "Weight must be a positive number",
-      "invalidPrice": "Price must be a positive number",
-      "invalidQualityScore": "Quality score must be between 0 and 100",
-      "imageUploadFailed": "Failed to upload images",
-      "generic": "An error occurred while logging the catch"
-    },
-    "tooltips": {
-      "species": "Enter the species of the catch",
-      "weight": "Enter the weight in kilograms",
-      "price": "Enter the price in USD",
-      "qualityScore": "Enter a quality score between 0 and 100",
-      "images": "Upload images of the catch"
-    },
-    "placeholders": {
-      "species": "Enter species",
-      "weight": "Enter weight",
-      "price": "Enter price",
-      "qualityScore": "Enter quality score"
-    }
-  },
-  "market": {
-    "title": "Market",
-    "search": "Search Listings",
-    "species": "Species",
-    "weight": "Weight (kg)",
-    "price": "Price ($)",
-    "qualityScore": "Quality Score (%)",
-    "listingTitle": "{species} (Batch ID: {batchId})",
-    "imageAlt": "Image of {species}",
-    "loading": "Loading marketplace...",
-    "noListings": "No listings available",
-    "errors": {
-      "invalidData": "Some listings are invalid",
-      "offline": "Offline mode: Marketplace unavailable",
-      "generic": "An error occurred while fetching listings"
-    },
-    "tooltips": {
-      "search": "Search for catches by species or batch ID"
-    },
-    "placeholders": {
-      "search": "Search for catches..."
-    }
-  },
-  "privacy": {
-    "title": "Privacy Policy",
-    "meta": {
-      "description": "Fisheries Management Corporation is committed to protecting your personal data. Review our Privacy Policy to understand how we collect, use, and safeguard your information in compliance with applicable regulations."
-    },
-    "introduction": {
-      "title": "Introduction",
-      "text": "At Fisheries Management Corporation, we prioritize the privacy and security of your personal information. This Privacy Policy outlines our practices for collecting, using, storing, and sharing your data in accordance with applicable data protection laws, including GDPR and other relevant regulations."
-    },
-    "dataCollection": {
-      "title": "Information We Collect",
-      "text": "We collect information necessary to provide our services and ensure compliance with fisheries management regulations. This includes data you provide directly and information generated through your interaction with our platform.",
-      "items": {
-        "personal": "Personal data such as name, email address, phone number, and national ID provided during registration or account management.",
-        "usage": "Usage data, including fisheries-related activities, log entries, and platform interactions, to enhance our services.",
-        "technical": "Technical data, such as IP addresses, browser types, and device information, to ensure system security and performance."
-      }
-    },
-    "dataUsage": {
-      "title": "How We Use Your Information",
-      "text": "Your information is used to deliver, maintain, and improve our fisheries management platform while ensuring compliance with legal and regulatory obligations.",
-      "items": {
-        "service": "To provide and personalize our services, including user authentication and fisheries data management.",
-        "security": "To protect the security and integrity of our platform, including fraud prevention and blockchain-based record verification.",
-        "compliance": "To comply with legal obligations, such as reporting to regulatory authorities and maintaining auditable records."
-      }
-    },
-    "dataSharing": {
-      "title": "Sharing Your Information",
-      "text": "We do not sell or rent your personal information. Data may be shared under specific circumstances to support our operations or meet legal requirements.",
-      "items": {
-        "partners": "With trusted third-party service providers (e.g., cloud hosting, blockchain services) bound by strict confidentiality agreements.",
-        "legal": "With regulatory authorities or law enforcement when required by law or to protect our legal rights.",
-        "consent": "With your explicit consent for specific purposes, such as data analytics partnerships."
-      }
-    },
-    "userRights": {
-      "title": "Your Rights",
-      "text": "You have rights regarding your personal data under applicable data protection laws. We are committed to facilitating the exercise of these rights.",
-      "items": {
-        "access": "Request access to the personal data we hold about you.",
-        "rectification": "Request correction of inaccurate or incomplete data.",
-        "deletion": "Request deletion of your data, subject to legal retention obligations."
-      }
-    },
-    "security": {
-      "title": "Data Security",
-      "text": "We implement robust technical and organizational measures, including encryption, access controls, and blockchain technology, to safeguard your data against unauthorized access, loss, or alteration."
-    },
-    "contact": {
-      "title": "Contact Us",
-      "text": "For inquiries regarding this Privacy Policy or to exercise your data rights, please contact our Data Protection Officer at",
-      "email": "privacy@fisheriescorp.com"
-    }
-  },
-  "dashboard": {
-    "title": "Dashboard",
-    "catchLogs": "Catch Logs",
-    "profiles": "User Profiles",
-    "batchId": "Batch ID",
-    "species": "Species",
-    "weight": "Weight (kg)",
-    "price": "Price",
-    "status": "Status",
-    "actions": "Actions",
-    "userId": "User ID",
-    "email": "Email",
-    "name": "Name",
-    "role": "Role",
-    "approve": "Approve",
-    "toggleRole": "Toggle Role",
-    "loading": "Loading...",
-    "errors": {
-      "invalidData": "Some catch log data is invalid",
-      "offline": "Offline mode: Please connect to the internet",
-      "generic": "An error occurred"
-    },
-    "tooltips": {
-      "approve": "Approve this catch log for the marketplace",
-      "toggleRole": "Switch user role between fisherman and admin"
-    },
-    "app": {
-  "logout": "Logout",
-  "error": "Error: {message}",
-  "retry": "Retry",
-  "offline": "Offline mode: Please connect to the internet"
-},
-"market": {
-  "title": "Market Listings",
-  "loading": "Loading listings...",
-  "errors": {
-    "offline": "You are offline. Please check your connection.",
-    "generic": "An error occurred while fetching listings.",
-      "invalidData": "Some listings contain invalid data."
-    },
-    "imageAlt": "Image of {{species}}",
-    "confirmReject": "Are you sure you want to reject this listing?"
-  }
-},
-  "catchLog": {
-    "title": "Catch Log",
-    "species": "Species",
-    "weight": "Weight (kg)",
-    "price": "Price ($)",
-    "qualityScore": "Quality Score (%)",
-    "images": "Images",
-    "submit": "Submit Catch",
-    "submitting": "Submitting...",
-    "success": "Catch logged successfully.",
-    "errors": {
-      "speciesRequired": "Species is required",
-      "invalidWeight": "Weight must be a positive number",
-      "invalidPrice": "Price must be a positive number",
-      "invalidQualityScore": "Quality score must be between 0 and 100",
-      "imageUploadFailed": "Failed to upload images",
-      "generic": "An error occurred while logging the catch"
-    },
-    "tooltips": {
-      "species": "Enter the species of the catch",
-      "weight": "Enter the weight in kilograms",
-      "price": "Enter the price in USD",
-      "qualityScore": "Enter a quality score between 0 and 100",
-      "images": "Upload images of the catch"
-    },
-    "placeholders": {
-      "species": "Enter species",
-      "weight": "Enter weight",
-      "price": "Enter price",
-      "qualityScore": "Enter quality score"
-    }
-  },
-  "dashboard": {
-    "userId": "User ID",
-    "name": "Name",
-    "email": "Email",
-    "role": "Role",
-    "actions": "Actions",
-    "loading": "Loading users...",
-    "errors": {
-      "offline": "You are offline. Please check your connection.",
-      "generic": "An error occurred while fetching users."
-    },
-    "confirmDelete": "Are you sure you want to delete this user?",
-    "confirmEdit": "Edit user details (placeholder)"
-  },
-  "Edit": "Edit",
-  "Delete": "Delete",
-  "Confirm": "Confirm",
-  "Cancel": "Cancel",
-  "Page {{page}}": "Page {{page}}",
-  "Search users": "Search users",
-  "View user details": "View user details",
-  "Admin Dashboard": "Admin Dashboard",
-  "Manage Users": "Manage Users",
-  "Catch Logs": "Catch Logs",
-  "Market": "Market",
-  "Profile": "Profile",
-  "Logout": "Logout",
-  "National ID": "National ID",
-  "Users": "Users",
-  "profile": {
-    "avatarAlt": "Profile avatar for {{name}}"
-  }
-  ,
-  "home2": {
-    "title": "GETREECH",
-    "subtitle": "Empowering Fishermen with Transparent and Secure Catch Management",
-    "noListings": "No listings available at the moment.",
-    "errors": {
-      "unauthenticated": "Please log in to view listings.",
-      "offline": "You are offline. Please check your connection.",
-      "invalidData": "Some listings could not be displayed due to invalid data.",
-      "generic": "An error occurred while fetching listings."
-    }
-  },
-  "welcome": "Welcome, {{role}}!",
-  "register2": "Register",
-  "login2": "Login",
-  "dashboard2": "Dashboard",
-  "logCatch2": "Log Catch",
-  "ExploreMarket": "Explore Market",
-  "RecentListings": "Recent Listings",
-  "ListingTitle": "{{species}} (Batch: {{batchId}})",
-  "weight2": "Weight: {{weight}} kg",
-  "price2": "Price: KES {{price}}",
-  "qualityScore2": "Quality Score: {{score}}%",
-  "imageAlt2": "{{species}} image",
-  "tooltips2": {
-    "market": "Browse available fish listings"
-  },
-  "register.roles2": {
-    "admin": "Administrator",
-    "fisherman": "Fisherman"
-  },
-  "Admin Dashboard2": "Admin Dashboard",
-  "Home2": "Home",
-  "Dashboard2": "Dashboard",
-  "Manage Users2": "Manage Users",
-  "Catch Logs2": "Catch Logs",
-  "Market2": "Market",
-  "Profile2": "Profile",
-  "Logout2": "Logout",
-  "about2": "About",
-  "privacy2": "Privacy",
-  "loading2": "Loading..."
+  "AppLogout": "Logout",
+  "AppError": "Error: {message}",
+  "AppRetry": "Retry",
+  "AppOffline": "Offline mode: Please connect to the internet",
+  "CommonConfirm": "Confirm",
+  "CommonCancel": "Cancel",
+  "CommonLoading": "Loading...",
+  "CommonErrorsOffline": "You are offline. Please check your connection.",
+  "CommonErrorsGeneric": "An error occurred",
+  "CommonErrorsInvalidData": "Some data is invalid",
+  "CommonErrorsUnauthenticated": "Please log in to continue",
+  "RegisterTitle": "Register for GETREECH",
+  "RegisterEmail": "Email",
+  "RegisterPassword": "Password",
+  "RegisterName": "Name",
+  "RegisterNationalId": "National ID",
+  "RegisterPhone": "Phone Number",
+  "RegisterRole": "Role",
+  "RegisterButton": "Register",
+  "RegisterCancel": "Cancel",
+  "RegisterSubmitting": "Registering...",
+  "RegisterSuccessRegister": "Successfully registered as {role}",
+  "RegisterSuccessEmailConfirmation": "Registration successful! Please check your email to confirm your account.",
+  "RegisterErrorsEmailRequired": "Email is required",
+  "RegisterErrorsInvalidEmail": "Please enter a valid email address",
+  "RegisterErrorsPasswordRequired": "Password must be at least 6 characters",
+  "RegisterErrorsNameRequired": "Name is required",
+  "RegisterErrorsNationalIdRequired": "National ID must be at least 8 digits",
+  "RegisterErrorsPhoneRequired": "Phone number is required",
+  "RegisterErrorsInvalidPhone": "Phone number must be in the format +2547XXXXXXXX",
+  "RegisterErrorsRoleRequired": "Please select a role",
+  "RegisterErrorsOffline": "You are offline. Please connect to the internet.",
+  "RegisterErrorsTimeout": "Request timed out. Please try again.",
+  "RegisterErrorsGeneric": "An error occurred. Please try again.",
+  "RegisterTooltipsEmail": "Enter the email for your account",
+  "RegisterTooltipsPassword": "Password must be at least 6 characters",
+  "RegisterTooltipsName": "Enter your full name as it appears on your ID",
+  "RegisterTooltipsNationalId": "Enter your national ID number (optional)",
+  "RegisterTooltipsPhone": "Enter your phone number for M-Pesa and communication",
+  "RegisterTooltipsRole": "Select your account role (Admin, Fisherman, or Buyer)",
+  "RegisterPlaceholdersEmail": "Enter your email",
+  "RegisterPlaceholdersPassword": "Enter your password",
+  "RegisterPlaceholdersName": "Enter your full name",
+  "RegisterPlaceholdersNationalId": "Enter your national ID",
+  "RegisterPlaceholdersPhone": "Enter your phone number",
+  "RegisterPlaceholdersRole": "Select your role",
+  "RegisterRolesAdmin": "Admin",
+  "RegisterRolesFisherman": "Fisherman",
+  "RegisterRolesBuyer": "Buyer",
+  "LoginTitle": "Login",
+  "LoginEmail": "Email",
+  "LoginPassword": "Password",
+  "LoginButton": "Login",
+  "LoginSubmitting": "Logging in...",
+  "LoginCancel": "Cancel",
+  "LoginResendConfirmation": "Resend Confirmation Email",
+  "LoginSuccessResendConfirmation": "Confirmation email resent. Please check your inbox.",
+  "LoginSuccessLogin": "Logged in successfully as {role}.",
+  "LoginErrorsEmailRequired": "Email is required",
+  "LoginErrorsInvalidEmail": "Invalid email format",
+  "LoginErrorsPasswordRequired": "Password is required",
+  "LoginErrorsEmailNotConfirmed": "Please confirm your email before logging in.",
+  "LoginErrorsInvalidCredentials": "Invalid email or password",
+  "LoginErrorsProfileFetch": "Failed to fetch user profile. Please try again.",
+  "LoginErrorsResendFailed": "Failed to resend confirmation email. Please try again.",
+  "LoginErrorsOffline": "Offline mode: Please connect to the internet",
+  "LoginErrorsTimeout": "Login timed out. Please try again.",
+  "LoginErrorsCancelled": "Login cancelled.",
+  "LoginErrorsGeneric": "An error occurred during login",
+  "LoginTooltipsEmail": "Enter your registered email address",
+  "LoginTooltipsPassword": "Enter your password",
+  "LoginPlaceholdersEmail": "Enter your email",
+  "LoginPlaceholdersPassword": "Enter your password",
+  "DashboardTitle": "Dashboard",
+  "DashboardWelcome": "Welcome, {role}!",
+  "DashboardCatchLogs": "Catch Logs",
+  "DashboardUserId": "User ID",
+  "DashboardName": "Name",
+  "DashboardEmail": "Email",
+  "DashboardRole": "Role",
+  "DashboardActions": "Actions",
+  "DashboardApprove": "Approve",
+  "DashboardToggleRole": "Toggle Role",
+  "DashboardLoading": "Loading...",
+  "DashboardErrorsInvalidData": "Some catch log data is invalid",
+  "DashboardErrorsOffline": "You are offline. Please check your connection.",
+  "DashboardErrorsGeneric": "An error occurred",
+  "DashboardTooltipsApprove": "Approve this catch log for the marketplace",
+  "DashboardTooltipsToggleRole": "Switch user role between fisherman and admin",
+  "DashboardAdminTitle": "Admin Dashboard",
+  "DashboardAdminManageUsers": "Manage Users",
+  "DashboardAdminAllCatches": "All Catches",
+  "DashboardAdminMarket": "Market",
+  "DashboardAdminProfile": "Profile",
+  "DashboardAdminTotalUsers": "Total Users",
+  "DashboardAdminPendingApprovals": "Pending Approvals",
+  "DashboardFishermanTitle": "Fisherman Dashboard",
+  "DashboardFishermanMyCatches": "My Catches",
+  "DashboardFishermanMarket": "Market",
+  "DashboardFishermanProfile": "Profile",
+  "DashboardFishermanApprovedListings": "Approved Listings",
+  "CatchLogTitle": "Log Catch",
+  "CatchLogSpecies": "Species",
+  "CatchLogWeight": "Weight (kg)",
+  "CatchLogPrice": "Price (USD)",
+  "CatchLogQualityScore": "Quality Score (%)",
+  "CatchLogImages": "Images",
+  "CatchLogSubmit": "Submit Catch",
+  "CatchLogSubmitting": "Submitting...",
+  "CatchLogSuccess": "Catch logged successfully.",
+  "CatchLogSuccessOffline": "Catch logged offline, will sync when online",
+  "CatchLogErrorsSpeciesRequired": "Species is required",
+  "CatchLogErrorsInvalidWeight": "Weight must be a positive number",
+  "CatchLogErrorsInvalidPrice": "Price must be a positive number",
+  "CatchLogErrorsInvalidQualityScore": "Quality score must be between 0 and 100",
+  "CatchLogErrorsImageUploadFailed": "Failed to upload images",
+  "CatchLogErrorsGeneric": "Failed to log catch",
+  "CatchLogTooltipsSpecies": "Enter the species of the catch",
+  "CatchLogTooltipsWeight": "Enter the weight in kilograms",
+  "CatchLogTooltipsPrice": "Enter the price in USD",
+  "CatchLogTooltipsQualityScore": "Enter a quality score between 0 and 100",
+  "CatchLogTooltipsImages": "Upload images of the catch",
+  "CatchLogPlaceholdersSpecies": "Enter species",
+  "CatchLogPlaceholdersWeight": "Enter weight",
+  "CatchLogPlaceholdersPrice": "Enter price",
+  "CatchLogPlaceholdersQualityScore": "Enter quality score",
+  "MarketTitle": "Market Listings",
+  "MarketLoading": "Loading listings...",
+  "MarketErrorsOffline": "You are offline. Please check your connection.",
+  "MarketErrorsGeneric": "An error occurred while fetching listings.",
+  "MarketErrorsInvalidData": "Some listings contain invalid data.",
+  "MarketImageAlt": "Image of {species}",
+  "MarketConfirmReject": "Are you sure you want to reject this listing?"
 }

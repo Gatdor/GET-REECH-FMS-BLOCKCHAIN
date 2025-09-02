@@ -1,77 +1,90 @@
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { Tooltip } from 'react-tooltip';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
-import { set, get } from 'idb-keyval';
 import * as Sentry from '@sentry/react';
 
-// Styled components
-const RegisterWrapper = styled.div`
+const commonStyles = css`
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+`;
+
+const clampFontSize = (min, vw, max) => `clamp(${min}rem, ${vw}vw, ${max}rem)`;
+
+const GradientButton = css`
+  background: linear-gradient(
+    90deg,
+    ${({ theme }) => theme.primary || '#1E3A8A'} 0%,
+    ${({ theme }) => theme.primaryHover || '#3B82F6'} 100%
+  );
+  color: white;
+  border: none;
+  padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 2.5vw, 2rem);
+  font-size: ${clampFontSize(0.9, 2, 1)};
+  font-weight: 600;
+  cursor: pointer;
+  &:hover {
+    background: linear-gradient(
+      90deg,
+      ${({ theme }) => theme.primaryHover || '#2563EB'} 0%,
+      #1E3A8A 100%
+    );
+  }
+  &:disabled {
+    background: ${({ theme }) => theme.textSecondary || '#6B7280'};
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`;
+
+const RegisterWrapper = styled(motion.div)`
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   background: linear-gradient(
     135deg,
-    ${({ theme }) => theme.background || '#f7fafc'} 0%,
-    ${({ theme }) => theme.backgroundSecondary || '#e2e8f0'} 100%
+    ${({ theme }) => theme.background || '#F1F5F9'} 0%,
+    ${({ theme }) => theme.backgroundSecondary || '#E2E8F0'} 100%
   );
-  padding: 1.5rem;
+  padding: clamp(1rem, 3vw, 2rem);
   @media (max-width: 768px) {
-    padding: 1rem;
-  }
-  @media (min-width: 1280px) {
-    padding: 2rem;
+    padding: clamp(0.5rem, 2vw, 1rem);
   }
 `;
 
 const RegisterCard = styled(motion.div)`
   background: ${({ theme }) => theme.card || '#ffffff'};
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  max-width: 500px;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  ${commonStyles}
+  max-width: 600px;
   width: 100%;
-  border: 1px solid ${({ theme }) => theme.border || '#edf2f7'};
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   @media (max-width: 768px) {
-    padding: 1.25rem;
-    margin: 0 0.5rem;
+    padding: clamp(1rem, 2vw, 1.25rem);
+    margin: 0 clamp(0.5rem, 2vw, 1rem);
     border-radius: 8px;
-  }
-  @media (min-width: 1280px) {
-    padding: 2.5rem;
-    max-width: 600px;
   }
 `;
 
 const Title = styled.h2`
-  font-size: 1.75rem;
+  font-size: ${clampFontSize(1.5, 3, 2)};
   font-weight: 700;
-  color: ${({ theme }) => theme.text || '#2d3748'};
-  margin-bottom: 1.5rem;
+  color: ${({ theme }) => theme.text || '#1E3A8A'};
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
   text-align: center;
-  @media (max-width: 768px) {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  @media (min-width: 1280px) {
-    font-size: 2rem;
-  }
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  @media (max-width: 768px) {
-    gap: 0.75rem;
-  }
+  gap: clamp(0.75rem, 2vw, 1rem);
 `;
 
 const FormGroup = styled.div`
@@ -82,380 +95,342 @@ const FormGroup = styled.div`
 
 const Label = styled.label`
   font-weight: 600;
-  color: ${({ theme }) => theme.text || '#2d3748'};
+  color: ${({ theme }) => theme.text || '#1E3A8A'};
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-  }
+  font-size: ${clampFontSize(0.9, 2, 1)};
 `;
 
 const Input = styled.input`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.border || '#e2e8f0'};
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: ${clampFontSize(0.9, 2, 1)};
   background: #fff;
   transition: border-color 0.3s, box-shadow 0.3s;
   &:focus {
     outline: none;
-    border-color: ${({ theme }) => theme.primary || '#2b6cb0'};
-    box-shadow: 0 0 8px rgba(44, 82, 130, 0.2);
+    border-color: ${({ theme }) => theme.primary || '#3B82F6'};
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
   }
   &:disabled {
     background: #f7fafc;
     cursor: not-allowed;
   }
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-    padding: 0.5rem;
-  }
 `;
 
 const Select = styled.select`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.border || '#e2e8f0'};
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: ${clampFontSize(0.9, 2, 1)};
   background: #fff;
   transition: border-color 0.3s, box-shadow 0.3s;
   &:focus {
     outline: none;
-    border-color: ${({ theme }) => theme.primary || '#2b6cb0'};
-    box-shadow: 0 0 8px rgba(44, 82, 130, 0.2);
+    border-color: ${({ theme }) => theme.primary || '#3B82F6'};
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
   }
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-    padding: 0.5rem;
+  &:disabled {
+    background: #f7fafc;
+    cursor: not-allowed;
   }
 `;
 
 const Button = styled(motion.button)`
-  padding: 0.75rem;
-  background: linear-gradient(
-    90deg,
-    ${({ theme }) => theme.primary || '#2b6cb0'} 0%,
-    ${({ theme }) => theme.primaryLight || '#63b3ed'} 100%
-  );
-  color: white;
-  border: none;
+  ${GradientButton}
+`;
+
+const CancelButton = styled(motion.button)`
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  background: #fff;
+  color: ${({ theme }) => theme.text || '#1E3A8A'};
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: ${clampFontSize(0.9, 2, 1)};
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
   &:hover {
-    background: linear-gradient(
-      90deg,
-      ${({ theme }) => theme.primaryHover || '#4299e1'} 0%,
-      ${({ theme }) => theme.primaryLightHover || '#2c5282'} 100%
-    );
-    transform: translateY(-2px);
+    background: ${({ theme }) => theme.backgroundSecondary || '#E2E8F0'};
   }
   &:disabled {
-    background: ${({ theme }) => theme.disabled || '#a0aec0'};
+    background: #f7fafc;
     cursor: not-allowed;
-    transform: none;
-    opacity: 0.7;
-  }
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-    padding: 0.5rem;
+    opacity: 0.6;
   }
 `;
 
-const ErrorMessage = styled(motion.p)`
-  font-size: 0.875rem;
-  padding: 0.75rem;
+const Alert = styled(motion.p)`
+  font-size: ${clampFontSize(0.8, 2, 0.875)};
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
   border-radius: 8px;
   text-align: center;
   margin: 0;
-  background: #fee2e2;
-  color: #991b1b;
-  @media (max-width: 768px) {
-    font-size: 0.8rem;
-    padding: 0.5rem;
-  }
 `;
 
-const LoadingSpinner = styled.div`
-  border: 3px solid ${({ theme }) => theme.primaryLight || '#63b3ed'};
-  border-top: 3px solid ${({ theme }) => theme.primary || '#2b6cb0'};
+const SuccessMessage = styled(Alert)`
+  background: #d1fae5;
+  color: #065f46;
+`;
+
+const ErrorMessage = styled(Alert)`
+  background: #fee2e2;
+  color: #991b1b;
+`;
+
+const LoadingSpinner = styled(motion.div)`
+  border: 4px solid ${({ theme }) => theme.textSecondary || '#D1D5DB'};
+  border-top: 4px solid ${({ theme }) => theme.primary || '#3B82F6'};
   border-radius: 50%;
   width: 32px;
   height: 32px;
   animation: spin 1s linear infinite;
-  margin: 0.5rem auto;
-  @media (min-width: 1280px) {
-    width: 36px;
-    height: 36px;
-    border-width: 4px;
-  }
+  margin: 1rem auto;
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
 `;
 
-const REGISTER_TIMEOUT_MS = 80000;
+const REGISTER_TIMEOUT_MS = 30000;
 
 const Register = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { supabase, isOnline } = useAuth();
+  const { register, user, isOnline, loading: authLoading, error: authError, setError } = useAuth();
   const { theme } = useContext(ThemeContext);
   const [formData, setFormData] = useState({
     name: '',
-    nationalId: '',
-    phone: '',
     email: '',
     password: '',
-    role: 'fisherman',
+    role: '',
+    national_id: '',
+    phone: '',
   });
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Timeout utility
-  const timeout = useCallback((promise, time) => {
-    let timer;
-    return Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(t('register.errors.timeout'))), time);
-      }),
-    ]).finally(() => clearTimeout(timer));
-  }, [t]);
+  const timeout = useCallback(
+    (promise, time) => {
+      let timer;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(t('RegisterErrorsTimeout', 'Request timed out. Please try again.'))), time);
+        }),
+      ]).finally(() => clearTimeout(timer));
+    },
+    [t]
+  );
 
-  const validateForm = () => {
-    if (!formData.name.trim()) return t('register.errors.nameRequired');
-    if (!/^\d{8,}$/.test(formData.nationalId)) return t('register.errors.invalidNationalId');
-    if (!/^\+2547\d{8}$/.test(formData.phone)) return t('register.errors.invalidPhone');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return t('register.errors.invalidEmail');
-    if (formData.password.length < 6) return t('register.errors.passwordTooShort');
-    return '';
-  };
+  useEffect(() => {
+    if (!authLoading && user) {
+      console.log('[Register] User Phone:', user.phone);
+      console.log('[Register] Redirecting user:', JSON.stringify(user, null, 2));
+      const redirectPath = user.role === 'admin' ? '/dashboard' : user.role === 'buyer' ? '/market' : '/log-catch';
+      navigate(redirectPath, { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
+    setLocalError('');
+    setSuccess('');
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setLocalError('');
+    setSuccess('');
+    setError(null);
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      setLoading(false);
+    if (!isOnline) {
+      setLocalError(t('RegisterErrorsOffline', 'You are offline. Please connect to the internet.'));
+      return;
+    }
+    if (!formData.name.trim()) {
+      setLocalError(t('RegisterErrorsNameRequired', 'Name is required'));
+      return;
+    }
+    if (!formData.email.trim()) {
+      setLocalError(t('RegisterErrorsEmailRequired', 'Email is required'));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setLocalError(t('RegisterErrorsInvalidEmail', 'Please enter a valid email address'));
+      return;
+    }
+    if (!formData.password || formData.password.length < 6) {
+      setLocalError(t('RegisterErrorsPasswordRequired', 'Password must be at least 6 characters'));
+      return;
+    }
+    if (!formData.role) {
+      setLocalError(t('RegisterErrorsRoleRequired', 'Please select a role'));
+      return;
+    }
+    if (!formData.phone.trim()) {
+      setLocalError(t('RegisterErrorsPhoneRequired', 'Phone number is required'));
+      return;
+    }
+    if (!/^\+2547[0-9]{8}$/.test(formData.phone)) {
+      setLocalError(t('RegisterErrorsInvalidPhone', 'Phone number must be in the format +2547XXXXXXXX'));
+      return;
+    }
+    if (formData.national_id && formData.national_id.length < 8) {
+      setLocalError(t('RegisterErrorsNationalIdRequired', 'National ID must be at least 8 digits'));
       return;
     }
 
+    setLoading(true);
+
     try {
+      console.log('[Register] Starting registration with email:', formData.email);
       console.time('Register');
-      if (isOnline) {
-        const { data, error: authError } = await timeout(
-          supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-              data: {
-                name: formData.name,
-                national_id: formData.nationalId,
-                phone: formData.phone,
-                role: formData.role,
-              },
-            },
-          }),
-          REGISTER_TIMEOUT_MS
-        );
-
-        if (authError) {
-          if (authError.message.includes('Email not confirmed')) {
-            setError(t('register.errors.emailNotConfirmed'));
-          } else {
-            throw authError;
-          }
-        }
-
-        await timeout(
-          supabase.from('profiles').insert({
-            id: data.user.id,
-            name: formData.name,
-            national_id: formData.nationalId,
-            phone: formData.phone,
-            role: formData.role,
-          }),
-          5000
-        );
-
-        setError(t('register.success'));
-        navigate('/login');
-      } else {
-        await set('offlineRegistrations', [
-          ...(await get('offlineRegistrations') || []),
-          { ...formData, timestamp: Date.now() },
-        ]);
-        setError(t('register.offlineSuccess'));
-        navigate('/login');
-      }
-    } catch (error) {
-      console.error('Register error:', error);
-      Sentry.captureException(error);
-      setError(error.message || t('register.errors.generic'));
-    } finally {
+      await timeout(
+        register(formData.name, formData.email, formData.password, formData.role, formData.phone, formData.national_id),
+        REGISTER_TIMEOUT_MS
+      );
       console.timeEnd('Register');
+      setSuccess(t('RegisterSuccessEmailConfirmation', 'Registration successful! Please check your email to confirm your account.'));
+      // Navigation is handled by useEffect
+    } catch (error) {
+      console.error('[Register] Error:', error.message);
+      Sentry.captureException(error);
+      const errorMessage = error.response?.data?.message || t('RegisterErrorsGeneric', 'An error occurred. Please try again.');
+      setLocalError(errorMessage);
+      setError(errorMessage);
+    } finally {
       setLoading(false);
     }
   };
 
+  const handleCancel = () => {
+    setFormData({ name: '', email: '', password: '', role: '', national_id: '', phone: '' });
+    setLocalError('');
+    setSuccess('');
+    setError(null);
+    setLoading(false);
+    navigate('/');
+  };
+
   return (
-    <RegisterWrapper theme={theme}>
-      <RegisterCard
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-      >
-        <Title>{t('register.title')}</Title>
+    <RegisterWrapper theme={theme} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      <RegisterCard initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Title>{t('RegisterTitle', 'Register for GETREECH')}</Title>
         <AnimatePresence>
-          {error && (
+          {(localError || authError) && (
             <ErrorMessage
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               role="alert"
             >
-              {error}
+              {localError || authError}
+              {(localError === t('RegisterErrorsTimeout') || authError === t('RegisterErrorsTimeout')) && (
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  {t('AppRetry', 'Retry')}
+                </Button>
+              )}
             </ErrorMessage>
+          )}
+          {success && (
+            <SuccessMessage
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              role="alert"
+            >
+              {success}
+            </SuccessMessage>
           )}
         </AnimatePresence>
         <Form onSubmit={handleSubmit}>
           <FormGroup>
             <Label htmlFor="name">
-              {t('register.name')}
+              {t('RegisterName', 'Name')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="name-tip"
-                data-tooltip-content={t('register.tooltips.name')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
+                data-tooltip-content={t('RegisterTooltipsName', 'Enter your full name as it appears on your ID')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
             <Input
-              type="text"
               id="name"
+              type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder={t('register.placeholders.name')}
+              placeholder={t('RegisterPlaceholdersName', 'Enter your full name')}
               required
               aria-describedby="name-tip"
-              disabled={loading}
+              disabled={loading || authLoading}
             />
             <Tooltip id="name-tip" />
           </FormGroup>
           <FormGroup>
-            <Label htmlFor="nationalId">
-              {t('register.nationalId')}
-              <FontAwesomeIcon
-                icon={faInfoCircle}
-                data-tooltip-id="id-tip"
-                data-tooltip-content={t('register.tooltips.nationalId')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
-              />
-            </Label>
-            <Input
-              type="text"
-              id="nationalId"
-              name="nationalId"
-              value={formData.nationalId}
-              onChange={handleChange}
-              placeholder={t('register.placeholders.nationalId')}
-              required
-              aria-describedby="id-tip"
-              disabled={loading}
-            />
-            <Tooltip id="id-tip" />
-          </FormGroup>
-          <FormGroup>
-            <Label htmlFor="phone">
-              {t('register.phone')}
-              <FontAwesomeIcon
-                icon={faInfoCircle}
-                data-tooltip-id="phone-tip"
-                data-tooltip-content={t('register.tooltips.phone')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
-              />
-            </Label>
-            <Input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder={t('register.placeholders.phone')}
-              required
-              aria-describedby="phone-tip"
-              disabled={loading}
-            />
-            <Tooltip id="phone-tip" />
-          </FormGroup>
-          <FormGroup>
             <Label htmlFor="email">
-              {t('register.email')}
+              {t('RegisterEmail', 'Email')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="email-tip"
-                data-tooltip-content={t('register.tooltips.email')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
+                data-tooltip-content={t('RegisterTooltipsEmail', 'Enter the email for your account')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
             <Input
-              type="email"
               id="email"
+              type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder={t('register.placeholders.email')}
+              placeholder={t('RegisterPlaceholdersEmail', 'Enter your email')}
               required
               aria-describedby="email-tip"
-              disabled={loading}
+              disabled={loading || authLoading}
             />
             <Tooltip id="email-tip" />
           </FormGroup>
           <FormGroup>
             <Label htmlFor="password">
-              {t('register.password')}
+              {t('RegisterPassword', 'Password')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="password-tip"
-                data-tooltip-content={t('register.tooltips.password')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
+                data-tooltip-content={t('RegisterTooltipsPassword', 'Password must be at least 6 characters')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
             <Input
-              type="password"
               id="password"
+              type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder={t('register.placeholders.password')}
+              placeholder={t('RegisterPlaceholdersPassword', 'Enter your password')}
               required
               aria-describedby="password-tip"
-              disabled={loading}
+              disabled={loading || authLoading}
             />
             <Tooltip id="password-tip" />
           </FormGroup>
           <FormGroup>
             <Label htmlFor="role">
-              {t('register.role')}
+              {t('RegisterRole', 'Role')}
               <FontAwesomeIcon
                 icon={faInfoCircle}
                 data-tooltip-id="role-tip"
-                data-tooltip-content={t('register.tooltips.role')}
-                style={{ cursor: 'pointer', color: theme.textSecondary || '#6b7280' }}
+                data-tooltip-content={t('RegisterTooltipsRole', 'Select your account role (Admin, Fisherman, or Buyer)')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
               />
             </Label>
             <Select
@@ -464,26 +439,85 @@ const Register = () => {
               value={formData.role}
               onChange={handleChange}
               required
-              aria-describedby="role-tip"
-              disabled={loading}
+              disabled={loading || authLoading}
             >
-              <option value="fisherman">{t('register.roles.fisherman')}</option>
-              <option value="admin">{t('register.roles.admin')}</option>
+              <option value="">{t('RegisterPlaceholdersRole', 'Select your role')}</option>
+              <option value="admin">{t('RegisterRolesAdmin', 'Admin')}</option>
+              <option value="fisherman">{t('RegisterRolesFisherman', 'Fisherman')}</option>
+              <option value="buyer">{t('RegisterRolesBuyer', 'Buyer')}</option>
             </Select>
             <Tooltip id="role-tip" />
           </FormGroup>
-          {loading ? (
-            <LoadingSpinner theme={theme} />
-          ) : (
-            <Button
-              type="submit"
-              disabled={loading}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {t('register.submit')}
-            </Button>
-          )}
+          <FormGroup>
+            <Label htmlFor="national_id">
+              {t('RegisterNationalId', 'National ID')}
+              <FontAwesomeIcon
+                icon={faInfoCircle}
+                data-tooltip-id="national-id-tip"
+                data-tooltip-content={t('RegisterTooltipsNationalId', 'Enter your national ID number (optional)')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+              />
+            </Label>
+            <Input
+              id="national_id"
+              type="text"
+              name="national_id"
+              value={formData.national_id}
+              onChange={handleChange}
+              placeholder={t('RegisterPlaceholdersNationalId', 'Enter your national ID')}
+              aria-describedby="national-id-tip"
+              disabled={loading || authLoading}
+            />
+            <Tooltip id="national-id-tip" />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="phone">
+              {t('RegisterPhone', 'Phone Number')}
+              <FontAwesomeIcon
+                icon={faInfoCircle}
+                data-tooltip-id="phone-tip"
+                data-tooltip-content={t('RegisterTooltipsPhone', 'Enter your phone number for M-Pesa and communication')}
+                style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+              />
+            </Label>
+            <Input
+              id="phone"
+              type="text"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder={t('RegisterPlaceholdersPhone', 'Enter your phone number')}
+              required
+              aria-describedby="phone-tip"
+              disabled={loading || authLoading}
+            />
+            <Tooltip id="phone-tip" />
+          </FormGroup>
+          <div style={{ display: 'flex', gap: clampFontSize(0.5, 2, 0.75), justifyContent: 'center', flexWrap: 'wrap' }}>
+            {loading ? (
+              <LoadingSpinner theme={theme} />
+            ) : (
+              <>
+                <Button
+                  type="submit"
+                  disabled={loading || authLoading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {t('RegisterButton', 'Register')}
+                </Button>
+                <CancelButton
+                  type="button"
+                  onClick={handleCancel}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={loading || authLoading}
+                >
+                  {t('RegisterCancel', 'Cancel')}
+                </CancelButton>
+              </>
+            )}
+          </div>
         </Form>
       </RegisterCard>
     </RegisterWrapper>

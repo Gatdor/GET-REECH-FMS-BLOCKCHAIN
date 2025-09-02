@@ -1,349 +1,262 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faUsers,
-  faFish,
-  faShoppingCart,
-  faSignOutAlt,
-  faBars,
-  faSearch,
-  faCheck,
-  faTimes,
-} from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../context/AuthContext';
-import { ThemeContext } from '../context/ThemeContext';
+import axios from 'axios';
 import * as Sentry from '@sentry/react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { Tooltip } from 'react-tooltip';
 
-// Reuse styled components from Home.jsx and AdminCatchLogs.jsx
-const MarketContainer = styled.div`
-  display: flex;
-  min-height: 100vh;
+const MarketWrapper = styled.div`
+  padding: clamp(1rem, 3vw, 2rem);
   background: ${({ theme }) => theme.background || '#F1F5F9'};
-  font-family: 'Roboto', sans-serif;
-  overflow-x: hidden;
+  min-height: 100vh;
+  @media (maxWidth: 768px) {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
 `;
 
-const SearchBar = styled.div`
+const FilterSection = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: clamp(1rem, 3vw, 1.5rem);
-  background: white;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 600px;
-  width: 100%;
+  flex-wrap: wrap;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  margin-bottom: 1rem;
 `;
 
-const SearchInput = styled.input`
-  border: none;
-  outline: none;
-  flex: 1;
+const Input = styled.input`
+  padding: 0.5rem;
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
+  border-radius: 8px;
   font-size: clamp(0.9rem, 2vw, 1rem);
 `;
 
-const ListingsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(1rem, 2vw, 1.5rem);
-  width: 100%;
-  max-width: 1200px;
+const Select = styled.select`
+  padding: 0.5rem;
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
+  border-radius: 8px;
+  font-size: clamp(0.9rem, 2vw, 1rem);
 `;
 
-const ActionButton = styled(motion.button)`
-  padding: 0.5rem 1rem;
-  background: ${({ theme, reject }) => (reject ? '#EF4444' : theme.primary || '#3B82F6')};
+const ProductGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+`;
+
+const ProductCard = styled(motion.div)`
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
+  border-radius: 8px;
+  padding: 1rem;
+  background: ${({ theme }) => theme.card || '#ffffff'};
+`;
+
+const OrderButton = styled(motion.button)`
+  background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  padding: 0.75rem;
+  border-radius: 8px;
   cursor: pointer;
-  margin-right: 0.5rem;
-  font-size: clamp(0.8rem, 2vw, 0.9rem);
-  &:hover {
-    background: ${({ theme, reject }) => (reject ? '#DC2626' : theme.primaryHover || '#2563EB')};
+  width: 100%;
+  &:disabled {
+    background: #6B7280;
+    cursor: not-allowed;
   }
+`;
+
+const ErrorMessage = styled(motion.p)`
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
+`;
+
+const SuccessMessage = styled(motion.p)`
+  background: #d1fae5;
+  color: #065f46;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
 `;
 
 const Market = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { user, supabase, isOnline, logout } = useAuth();
-  const { theme } = useContext(ThemeContext);
-  const [listings, setListings] = useState([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [filters, setFilters] = useState({ species: '', price_min: '', price_max: '', location: '' });
   const [error, setError] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [orderData, setOrderData] = useState({ product_id: null, quantity: '', phone: '' });
 
   useEffect(() => {
-    const fetchListings = async () => {
+    const fetchProducts = async () => {
       setLoading(true);
-      setError('');
       try {
-        if (isOnline) {
-          const { data, error: dbError } = await supabase
-            .from('catch_logs')
-            .select('batch_id, species, weight, price, quality_score, image_urls, user_id, status')
-            .eq('status', 'approved')
-            .order('created_at', { ascending: false })
-            .limit(12);
-          if (dbError) throw dbError;
-          setListings(data.filter((listing) => !validateListing(listing)));
-        } else {
-          setError(t('home.errors.offline'));
-        }
-      } catch (error) {
-        Sentry.captureException(error);
-        setError(error.message || t('home.errors.generic'));
+        const token = localStorage.getItem('auth_token');
+        const params = {};
+        if (filters.species) params.species = filters.species;
+        if (filters.price_min) params.price_min = filters.price_min;
+        if (filters.price_max) params.price_max = filters.price_max;
+        if (filters.location) params.location = filters.location;
+
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/products`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params,
+        });
+        setProducts(response.data.products || []);
+        setError('');
+      } catch (err) {
+        console.error('[Market] Fetch error:', err.message);
+        Sentry.captureException(err);
+        setError(t('market.errors.fetch'));
       } finally {
         setLoading(false);
       }
     };
+    fetchProducts();
+  }, [filters, t]);
 
-    fetchListings();
-  }, [supabase, isOnline, t]);
-
-  const filteredListings = listings.filter(
-    (listing) =>
-      listing.species.toLowerCase().includes(search.toLowerCase()) ||
-      listing.batch_id.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleApprove = async (batchId) => {
-    try {
-      if (isOnline) {
-        const { error } = await supabase
-          .from('catch_logs')
-          .update({ status: 'approved' })
-          .eq('batch_id', batchId);
-        if (error) throw error;
-        setListings(listings.map((l) => (l.batch_id === batchId ? { ...l, status: 'approved' } : l)));
-      } else {
-        setError(t('home.errors.offline'));
-      }
-    } catch (error) {
-      Sentry.captureException(error);
-      setError(t('home.errors.generic'));
-    }
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+    setError('');
+    setSuccess('');
   };
 
-  const handleReject = async (batchId) => {
-    try {
-      if (isOnline) {
-        const { error } = await supabase
-          .from('catch_logs')
-          .update({ status: 'rejected' })
-          .eq('batch_id', batchId);
-        if (error) throw error;
-        setListings(listings.map((l) => (l.batch_id === batchId ? { ...l, status: 'rejected' } : l)));
-      } else {
-        setError(t('home.errors.offline'));
-      }
-    } catch (error) {
-      Sentry.captureException(error);
-      setError(t('home.errors.generic'));
-    }
+  const handleOrderChange = (productId, field, value) => {
+    setOrderData({ ...orderData, product_id: productId, [field]: value });
   };
+
+  const handleOrder = async (productId) => {
+    if (!orderData.quantity || !orderData.phone) {
+      setError(t('market.errors.missingFields'));
+      return;
+    }
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/orders`,
+        { product_id: productId, quantity: parseFloat(orderData.quantity), phone: orderData.phone },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setProducts(products.map(p => p.id === productId ? { ...p, quantity: p.quantity - parseFloat(orderData.quantity) } : p));
+      setSuccess(t('market.success.order'));
+      setError('');
+      setOrderData({ product_id: null, quantity: '', phone: '' });
+    } catch (err) {
+        console.error('[Market] Order error:', err.message);
+        Sentry.captureException(err);
+        setError(t('market.errors.order'));
+        setSuccess('');
+    } finally {
+        setLoading(false);
+    }
+};
 
   return (
-    <AnimatePresence>
-      <motion.div
-        variants={pageVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={{ duration: 0.3 }}
-      >
-        <MarketContainer theme={theme}>
-          <Sidebar
-            initial={{ x: -250 }}
-            animate={{ x: isSidebarOpen ? 0 : -250 }}
+    <MarketWrapper>
+      <h2>{t('market.title')}</h2>
+      <AnimatePresence>
+        {error && (
+          <ErrorMessage initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {error}
+          </ErrorMessage>
+        )}
+        {success && (
+          <SuccessMessage initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {success}
+          </SuccessMessage>
+        )}
+      </AnimatePresence>
+      <FilterSection>
+        <Input
+          type="text"
+          name="species"
+          placeholder={t('market.filters.species')}
+          value={filters.species}
+          onChange={handleFilterChange}
+          data-tooltip-id="species-tip"
+          data-tooltip-content={t('market.tooltips.species')}
+        />
+        <Tooltip id="species-tip" />
+        <Input
+          type="number"
+          name="price_min"
+          placeholder={t('market.filters.priceMin')}
+          value={filters.price_min}
+          onChange={handleFilterChange}
+          data-tooltip-id="price-min-tip"
+          data-tooltip-content={t('market.tooltips.priceMin')}
+        />
+        <Tooltip id="price-min-tip" />
+        <Input
+          type="number"
+          name="price_max"
+          placeholder={t('market.filters.priceMax')}
+          value={filters.price_max}
+          onChange={handleFilterChange}
+          data-tooltip-id="price-max-tip"
+          data-tooltip-content={t('market.tooltips.priceMax')}
+        />
+        <Tooltip id="price-max-tip" />
+        <Select name="location" value={filters.location} onChange={handleFilterChange}>
+          <option value="">{t('market.filters.location')}</option>
+          <option value="Mombasa">Mombasa</option>
+          <option value="Nairobi">Nairobi</option>
+          <option value="Kisumu">Kisumu</option>
+        </Select>
+      </FilterSection>
+      <ProductGrid>
+        {products.map(product => (
+          <ProductCard
+            key={product.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            isOpen={isSidebarOpen}
           >
-            <motion.h2
+            <img
+              src={product.image || '/assets/fallback-fish.jpg'}
+              alt={product.species}
+              style={{ width: '100%', borderRadius: '8px', maxHeight: '150px', objectFit: 'cover' }}
+            />
+            <h3>{product.species} ({product.type})</h3>
+            <p>{t('market.quantity')}: {product.quantity} kg</p>
+            <p>{t('market.price')}: KES {product.price}</p>
+            <p>{t('market.location')}: {product.location}</p>
+            <Input
+              type="number"
+              placeholder={t('market.orderQuantity')}
+              min="1"
+              max={product.quantity}
+              value={orderData.product_id === product.id ? orderData.quantity : ''}
+              onChange={(e) => handleOrderChange(product.id, 'quantity', e.target.value)}
+              disabled={loading || !product.quantity}
+            />
+            <Input
+              type="text"
+              placeholder={t('market.phone')}
+              value={orderData.product_id === product.id ? orderData.phone : ''}
+              onChange={(e) => handleOrderChange(product.id, 'phone', e.target.value)}
+              disabled={loading}
+              data-tooltip-id="phone-tip"
+              data-tooltip-content={t('market.tooltips.phone')}
+            />
+            <Tooltip id="phone-tip" />
+            <OrderButton
+              onClick={() => handleOrder(product.id)}
+              disabled={loading || !product.quantity}
               whileHover={{ scale: 1.05 }}
-              style={{ marginBottom: '1rem', fontSize: 'clamp(1.2rem, 3vw, 1.5rem)' }}
+              whileTap={{ scale: 0.95 }}
             >
-              {t('Admin Dashboard')}
-            </motion.h2>
-            <SidebarLink as={Link} to="/" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Home')}
-            </SidebarLink>
-            {user && (
-              <>
-                <SidebarLink
-                  as={Link}
-                  to={user.user_metadata?.role === 'admin' ? '/dashboard' : '/log-catch'}
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <FontAwesomeIcon icon={faFish} /> {t(user.user_metadata?.role === 'admin' ? 'Dashboard' : 'Log Catch')}
-                </SidebarLink>
-                <SidebarLink
-                  as={Link}
-                  to="/admin/users"
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <FontAwesomeIcon icon={faUsers} /> {t('Manage Users')}
-                </SidebarLink>
-                <SidebarLink
-                  as={Link}
-                  to="/admin/catch-logs"
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <FontAwesomeIcon icon={faFish} /> {t('Catch Logs')}
-                </SidebarLink>
-                <SidebarLink
-                  as={Link}
-                  to="/admin/market"
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <FontAwesomeIcon icon={faShoppingCart} /> {t('Market')}
-                </SidebarLink>
-                <SidebarLink
-                  as={Link}
-                  to="/profile"
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <FontAwesomeIcon icon={faUsers} /> {t('Profile')}
-                </SidebarLink>
-                <SidebarLink
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => {
-                    logout();
-                    navigate('/login');
-                    setIsSidebarOpen(false);
-                  }}
-                >
-                  <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
-                </SidebarLink>
-              </>
-            )}
-          </Sidebar>
-          <MainContent>
-            <Header>
-              <MenuButton
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                aria-label={t('Toggle Sidebar')}
-              >
-                <FontAwesomeIcon icon={faBars} />
-              </MenuButton>
-              <Title>{t('Market')}</Title>
-              {user && (
-                <UserInfo>
-                  {user.user_metadata?.name} ({t(`register.roles.${user.user_metadata?.role}`)})
-                  <LogoutButton
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => logout()}
-                    aria-label={t('Logout')}
-                  >
-                    <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
-                  </LogoutButton>
-                </UserInfo>
-              )}
-            </Header>
-            <SearchBar>
-              <FontAwesomeIcon icon={faSearch} />
-              <SearchInput
-                type="text"
-                placeholder={t('Search listings...')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label={t('Search listings')}
-              />
-            </SearchBar>
-            <AnimatePresence>
-              {error && (
-                <ErrorMessage
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  role="alert"
-                  aria-live="assertive"
-                >
-                  {error}
-                </ErrorMessage>
-              )}
-            </AnimatePresence>
-            {loading && <LoadingSpinner />}
-            {!loading && filteredListings.length === 0 && (
-              <EmptyState>
-                <p style={{ fontSize: 'clamp(0.9rem, 2vw, 1rem)', color: theme.textSecondary || '#6B7280' }}>
-                  {t('market.noListings')}
-                </p>
-              </EmptyState>
-            )}
-            {!loading && filteredListings.length > 0 && (
-              <ListingsGrid>
-                {filteredListings.map((listing) => (
-                  <ListingCard
-                    key={listing.batch_id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ListingTitle>
-                      {t('ListingTitle', { species: listing.species, batchId: listing.batch_id })}
-                    </ListingTitle>
-                    {listing.image_urls && listing.image_urls[0] ? (
-                      <ListingImage
-                        src={listing.image_urls[0].replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')}
-                        alt={t('imageAlt', { species: listing.species })}
-                        onError={(e) => (e.target.src = '/assets/fallback-fish.jpg')}
-                      />
-                    ) : (
-                      <ListingImage
-                        src="/assets/fallback-fish.jpg"
-                        alt={t('imageAlt', { species: listing.species })}
-                      />
-                    )}
-                    <ListingDetail>{t('weight', { weight: listing.weight })}</ListingDetail>
-                    <ListingDetail>{t('price', { price: listing.price })}</ListingDetail>
-                    <ListingDetail>
-                      {t('qualityScore', { score: (listing.quality_score * 100).toFixed(2) })}
-                    </ListingDetail>
-                    {user?.user_metadata?.role === 'admin' && listing.status !== 'approved' && (
-                      <div style={{ marginTop: '1rem' }}>
-                        <ActionButton
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleApprove(listing.batch_id)}
-                          aria-label={t('Approve listing')}
-                        >
-                          <FontAwesomeIcon icon={faCheck} /> {t('Approve')}
-                        </ActionButton>
-                        <ActionButton
-                          reject
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleReject(listing.batch_id)}
-                          aria-label={t('Reject listing')}
-                        >
-                          <FontAwesomeIcon icon={faTimes} /> {t('Reject')}
-                        </ActionButton>
-                      </div>
-                    )}
-                  </ListingCard>
-                ))}
-              </ListingsGrid>
-            )}
-          </MainContent>
-        </MarketContainer>
-      </motion.div>
-    </AnimatePresence>
+              {t('market.order')}
+            </OrderButton>
+          </ProductCard>
+        ))}
+      </ProductGrid>
+      {loading && <p>{t('market.loading')}</p>}
+    </MarketWrapper>
   );
 };
 

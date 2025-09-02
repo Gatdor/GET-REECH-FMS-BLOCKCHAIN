@@ -1,96 +1,65 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faFish, faShoppingCart, faSignOutAlt, faBars, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faInfoCircle, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import { Tooltip } from 'react-tooltip';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
-import { uploadImageToIPFS, createBatchOnBlockchain } from '../services/blockchain';
 import { get, set } from 'idb-keyval';
 import * as Sentry from '@sentry/react';
 
-// Styled Components (aligned with Dashboard.jsx, Market.jsx, Profile.jsx, AdminUsers.jsx)
-const AdminContainer = styled.div`
-  display: flex;
-  min-height: 100vh;
-  background: ${({ theme }) => theme.background || '#F1F5F9'};
-  font-family: 'Roboto', sans-serif;
-  overflow-x: hidden;
-`;
-
-const Sidebar = styled(motion.aside)`
-  width: 250px;
-  background: ${({ theme }) => theme.primary || '#1E3A8A'};
-  color: white;
-  padding: clamp(1rem, 2vw, 1.5rem);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  @media (max-width: 768px) {
-    width: 100%;
-    position: fixed;
-    z-index: 1000;
-    transform: ${({ isOpen }) => (isOpen ? 'translateX(0)' : 'translateX(-100%)')};
-    transition: transform 0.3s ease;
-  }
-`;
-
-const SidebarLink = styled(motion.div)`
-  padding: 0.75rem;
+// Common Styles
+const commonStyles = css`
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: white;
-  text-decoration: none;
-  cursor: pointer;
-  font-size: clamp(0.9rem, 2vw, 1rem);
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 `;
 
-const MainContent = styled.main`
-  flex: 1;
-  padding: clamp(1rem, 3vw, 2rem);
-  background: ${({ theme }) => theme.background || '#F1F5F9'};
+const clampFontSize = (min, vw, max) => `clamp(${min}rem, ${vw}vw, ${max}rem)`;
+
+// Styled Components
+const CatchLogWrapper = styled.div`
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   min-height: 100vh;
+  background: linear-gradient(
+    135deg,
+    ${({ theme }) => theme.background || '#F1F5F9'} 0%,
+    ${({ theme }) => theme.backgroundSecondary || '#E2E8F0'} 100%
+  );
+  padding: clamp(1rem, 3vw, 2rem);
+  @media (max-width: 768px) {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
+`;
+
+const CatchLogCard = styled(motion.div)`
+  background: ${({ theme }) => theme.card || '#ffffff'};
+  padding: clamp(1.5rem, 3vw, 2rem);
+  ${commonStyles}
+  max-width: 600px;
+  width: 100%;
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
+  @media (max-width: 768px) {
+    padding: clamp(1rem, 2vw, 1.25rem);
+    margin: 0 clamp(0.5rem, 2vw, 1rem);
+    border-radius: 8px;
+  }
 `;
 
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
-  padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: clamp(1rem, 3vw, 2rem);
-  border-radius: 8px;
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
 `;
 
-const MenuButton = styled(motion.button)`
-  display: none;
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.primary || '#3B82F6'};
-  font-size: clamp(1.2rem, 3vw, 1.5rem);
-  cursor: pointer;
-  @media (max-width: 768px) {
-    display: block;
-  }
-`;
-
-const Title = styled.h1`
-  font-size: clamp(1.2rem, 3vw, 1.5rem);
+const Title = styled.h2`
+  font-size: ${clampFontSize(1.5, 3, 2)};
+  font-weight: 700;
   color: ${({ theme }) => theme.text || '#1E3A8A'};
   margin: 0;
 `;
@@ -99,7 +68,7 @@ const UserInfo = styled.div`
   display: flex;
   align-items: center;
   gap: clamp(0.5rem, 2vw, 1rem);
-  font-size: clamp(0.8rem, 2vw, 1rem);
+  font-size: ${clampFontSize(0.8, 2, 1)};
   color: ${({ theme }) => theme.text || '#1E3A8A'};
 `;
 
@@ -108,30 +77,27 @@ const LogoutButton = styled(motion.button)`
   border: none;
   color: ${({ theme }) => theme.primary || '#3B82F6'};
   cursor: pointer;
-  font-size: clamp(0.8rem, 2vw, 1rem);
+  font-size: ${clampFontSize(0.8, 2, 1)};
   display: flex;
   align-items: center;
   gap: 0.5rem;
 `;
 
-const FormWrapper = styled.div`
-  max-width: 600px;
-  width: 100%;
-  background: white;
-  padding: clamp(1.5rem, 3vw, 2rem);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-`;
-
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: clamp(1rem, 2vw, 1.5rem);
+  gap: clamp(0.75rem, 2vw, 1rem);
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 `;
 
 const Label = styled.label`
   font-weight: 600;
-  font-size: clamp(0.9rem, 2vw, 0.95rem);
+  font-size: ${clampFontSize(0.9, 2, 0.95)};
   color: ${({ theme }) => theme.text || '#1F2937'};
   display: flex;
   align-items: center;
@@ -139,49 +105,52 @@ const Label = styled.label`
 `;
 
 const Input = styled.input`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.textSecondary || '#D1D5DB'};
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   border-radius: 8px;
-  font-size: clamp(0.9rem, 2vw, 1rem);
-  background: white;
+  font-size: ${clampFontSize(0.9, 2, 1)};
+  background: #fff;
   transition: border-color 0.3s, box-shadow 0.3s;
-  width: 100%;
-  box-sizing: border-box;
   &:focus {
-    outline: 2px solid ${({ theme }) => theme.primary || '#3B82F6'};
-    outline-offset: 2px;
+    outline: none;
+    border-color: ${({ theme }) => theme.primary || '#3B82F6'};
     box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
   }
 `;
 
 const Select = styled.select`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.textSecondary || '#D1D5DB'};
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
   border-radius: 8px;
-  font-size: clamp(0.9rem, 2vw, 1rem);
-  background: white;
+  font-size: ${clampFontSize(0.9, 2, 1)};
+  background: #fff;
   transition: border-color 0.3s, box-shadow 0.3s;
   &:focus {
-    outline: 2px solid ${({ theme }) => theme.primary || '#3B82F6'};
-    outline-offset: 2px;
+    outline: none;
+    border-color: ${({ theme }) => theme.primary || '#3B82F6'};
     box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
   }
 `;
 
 const Button = styled(motion.button)`
-  padding: 0.75rem;
-  background: linear-gradient(90deg, ${({ theme }) => theme.primary || '#1E3A8A'} 0%, ${({ theme }) => theme.primaryHover || '#3B82F6'} 100%);
+  background: linear-gradient(
+    90deg,
+    ${({ theme }) => theme.primary || '#1E3A8A'} 0%,
+    ${({ theme }) => theme.primaryHover || '#3B82F6'} 100%
+  );
   color: white;
   border: none;
+  padding: clamp(0.75rem, 1.5vw, 1rem);
   border-radius: 8px;
-  font-size: clamp(0.9rem, 2vw, 1rem);
+  font-size: ${clampFontSize(0.9, 2, 1)};
   font-weight: 600;
   cursor: pointer;
-  width: 100%;
-  max-width: 200px;
-  margin: 0 auto;
   &:hover {
-    background: linear-gradient(90deg, ${({ theme }) => theme.primaryHover || '#2563EB'} 0%, #1E3A8A 100%);
+    background: linear-gradient(
+      90deg,
+      ${({ theme }) => theme.primaryHover || '#2563EB'} 0%,
+      #1E3A8A 100%
+    );
   }
   &:disabled {
     background: ${({ theme }) => theme.textSecondary || '#6B7280'};
@@ -191,37 +160,35 @@ const Button = styled(motion.button)`
 `;
 
 const ResetButton = styled(motion.button)`
-  padding: 0.75rem;
+  padding: clamp(0.75rem, 1.5vw, 1rem);
   background: #E5E7EB;
   color: #1F2937;
   border: none;
   border-radius: 8px;
-  font-size: clamp(0.9rem, 2vw, 1rem);
+  font-size: ${clampFontSize(0.9, 2, 1)};
   font-weight: 600;
   cursor: pointer;
-  width: 100%;
-  max-width: 200px;
-  margin: 0 auto;
   &:hover {
     background: #D1D5DB;
   }
 `;
 
 const ErrorMessage = styled(motion.p)`
-  color: #EF4444;
-  font-size: clamp(0.8rem, 2vw, 0.875rem);
+  font-size: ${clampFontSize(0.8, 2, 0.875)};
+  background: #fee2e2;
+  color: #991b1b;
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
+  border-radius: 8px;
   text-align: center;
-  margin-bottom: clamp(0.5rem, 2vw, 1rem);
 `;
 
 const SuccessMessage = styled(motion.p)`
-  color: #065F46;
-  background: #D1FAE5;
-  font-size: clamp(0.8rem, 2vw, 0.875rem);
-  text-align: center;
-  padding: 0.75rem;
+  font-size: ${clampFontSize(0.8, 2, 0.875)};
+  background: #d1fae5;
+  color: #065f46;
+  padding: clamp(0.5rem, 1.5vw, 0.75rem);
   border-radius: 8px;
-  margin-bottom: clamp(0.5rem, 2vw, 1rem);
+  text-align: center;
 `;
 
 const ImagePreviews = styled.div`
@@ -233,23 +200,22 @@ const ImagePreviews = styled.div`
 
 const PreviewImage = styled.img`
   width: 100%;
-  height: 112.5px; /* 4:3 aspect ratio (150px width * 0.75) */
+  height: 112.5px; /* 4:3 aspect ratio */
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.textSecondary || '#D1D5DB'};
+  border: 1px solid ${({ theme }) => theme.border || '#D1D5DB'};
 `;
 
-// Animation Variants
 const pageVariants = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 0, y: 50 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
+  exit: { opacity: 0, y: -50 },
 };
 
 const CatchLog = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, supabase, isOnline, logout } = useAuth();
+  const { user, supabase, isOnline, logout, api } = useAuth();
   const { theme } = useContext(ThemeContext);
   const [formData, setFormData] = useState({
     species: '',
@@ -267,10 +233,9 @@ const CatchLog = () => {
   const [success, setSuccess] = useState('');
   const [geoError, setGeoError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role !== 'fisherman') {
       navigate('/login');
       return;
     }
@@ -368,17 +333,22 @@ const CatchLog = () => {
     try {
       const batchId = `BATCH_${Date.now()}`;
       let imageUrls = [];
-      let qualityScore = 0.5; // Default quality score
 
       if (isOnline) {
         imageUrls = await Promise.all(
           formData.images.map(async (file) => {
-            const ipfsUrl = await uploadImageToIPFS(file);
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await api.post('/upload-ipfs', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
             const { data, error } = await supabase.storage
               .from('fish-images')
               .upload(`public/${batchId}_${file.name}`, file);
             if (error) throw error;
-            return data ? supabase.storage.from('fish-images').getPublicUrl(data.path).data.publicUrl : ipfsUrl;
+            return data
+              ? supabase.storage.from('fish-images').getPublicUrl(data.path).data.publicUrl
+              : response.data.url;
           })
         );
       }
@@ -395,13 +365,12 @@ const CatchLog = () => {
         shelf_life: parseInt(formData.shelfLife, 10),
         price: parseFloat(formData.price),
         image_urls: imageUrls,
-        quality_score: qualityScore,
+        quality_score: 0.5,
       };
 
       if (isOnline) {
         const { error: dbError } = await supabase.from('catch_logs').insert(data);
         if (dbError) throw dbError;
-        await createBatchOnBlockchain(data);
         setSuccess(t('catchLog.success'));
       } else {
         await set('offlineActions', [
@@ -438,372 +407,329 @@ const CatchLog = () => {
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.5 }}
       >
-        <AdminContainer theme={theme}>
-          <Sidebar
-            initial={{ x: -250 }}
-            animate={{ x: isSidebarOpen ? 0 : -250 }}
-            transition={{ duration: 0.3 }}
-            isOpen={isSidebarOpen}
-          >
-            <motion.h2
-              whileHover={{ scale: 1.05 }}
-              style={{ marginBottom: '1rem', fontSize: 'clamp(1.2rem, 3vw, 1.5rem)' }}
-            >
-              {t('Admin Dashboard')}
-            </motion.h2>
-            <SidebarLink as={Link} to="/dashboard" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Dashboard')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/users" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Manage Users')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/catch-logs" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faFish} /> {t('Catch Logs')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/market" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faShoppingCart} /> {t('Market')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/profile" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Profile')}
-            </SidebarLink>
-            <SidebarLink
-              whileHover={{ scale: 1.05 }}
-              onClick={() => {
-                logout();
-                navigate('/login');
-                setIsSidebarOpen(false);
-              }}
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
-            </SidebarLink>
-          </Sidebar>
-          <MainContent>
+        <CatchLogWrapper theme={theme}>
+          <CatchLogCard>
             <Header>
-              <MenuButton
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              >
-                <FontAwesomeIcon icon={faBars} />
-              </MenuButton>
               <Title>{t('catchLog.title')}</Title>
               <UserInfo>
-                {user?.user_metadata?.name} ({user?.user_metadata?.role})
-                <LogoutButton whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => logout()}>
-                  <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
+                {user?.name} ({user?.role})
+                <LogoutButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} /> {t('catchLog.logout')}
                 </LogoutButton>
               </UserInfo>
             </Header>
-            <FormWrapper>
-              <Form onSubmit={handleSubmit}>
-                <h2 style={{ fontSize: 'clamp(1.2rem, 3vw, 1.5rem)', textAlign: 'center' }}>
-                  {t('catchLog.title')}
-                </h2>
-                <AnimatePresence>
-                  {error && (
-                    <ErrorMessage
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      role="alert"
-                      aria-live="assertive"
-                    >
-                      {error}
-                    </ErrorMessage>
-                  )}
-                  {geoError && (
-                    <ErrorMessage
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      role="alert"
-                      aria-live="assertive"
-                    >
-                      {geoError}
-                    </ErrorMessage>
-                  )}
-                  {success && (
-                    <SuccessMessage
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      role="alert"
-                      aria-live="polite"
-                    >
-                      {success}
-                    </SuccessMessage>
-                  )}
-                </AnimatePresence>
-                <div>
-                  <Label htmlFor="species">
-                    {t('catchLog.species')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="species-tip"
-                      data-tooltip-content={t('catchLog.tooltips.species')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Select
-                    id="species"
-                    name="species"
-                    value={formData.species}
-                    onChange={handleChange}
-                    required
-                    aria-describedby="species-tip"
+            <Form onSubmit={handleSubmit}>
+              <AnimatePresence>
+                {error && (
+                  <ErrorMessage
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    role="alert"
+                    aria-live="assertive"
                   >
-                    <option value="">{t('catchLog.placeholders.species')}</option>
-                    <option value="Tilapia">{t('catchLog.speciesOptions.tilapia')}</option>
-                    <option value="Nile Perch">{t('catchLog.speciesOptions.nilePerch')}</option>
-                    <option value="Dagaa">{t('catchLog.speciesOptions.dagaa')}</option>
-                  </Select>
-                  <Tooltip id="species-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="dryingMethod">
-                    {t('catchLog.dryingMethod')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="dryingMethod-tip"
-                      data-tooltip-content={t('catchLog.tooltips.dryingMethod')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Select
-                    id="dryingMethod"
-                    name="dryingMethod"
-                    value={formData.dryingMethod}
-                    onChange={handleChange}
-                    required
-                    aria-describedby="dryingMethod-tip"
+                    {error}
+                  </ErrorMessage>
+                )}
+                {geoError && (
+                  <ErrorMessage
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    role="alert"
+                    aria-live="assertive"
                   >
-                    <option value="">{t('catchLog.placeholders.dryingMethod')}</option>
-                    <option value="Sun">{t('catchLog.dryingMethods.sun')}</option>
-                    <option value="Solar">{t('catchLog.dryingMethods.solar')}</option>
-                    <option value="Smoke">{t('catchLog.dryingMethods.smoke')}</option>
-                  </Select>
-                  <Tooltip id="dryingMethod-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="batchSize">
-                    {t('catchLog.batchSize')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="batchSize-tip"
-                      data-tooltip-content={t('catchLog.tooltips.batchSize')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="batchSize"
-                    type="number"
-                    name="batchSize"
-                    value={formData.batchSize}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.batchSize')}
-                    required
-                    min="0"
-                    step="0.1"
-                    aria-describedby="batchSize-tip"
-                  />
-                  <Tooltip id="batchSize-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="weight">
-                    {t('catchLog.weight')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="weight-tip"
-                      data-tooltip-content={t('catchLog.tooltips.weight')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="weight"
-                    type="number"
-                    name="weight"
-                    value={formData.weight}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.weight')}
-                    required
-                    min="0"
-                    step="0.1"
-                    aria-describedby="weight-tip"
-                  />
-                  <Tooltip id="weight-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="harvestDate">
-                    {t('catchLog.harvestDate')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="harvestDate-tip"
-                      data-tooltip-content={t('catchLog.tooltips.harvestDate')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="harvestDate"
-                    type="date"
-                    name="harvestDate"
-                    value={formData.harvestDate}
-                    onChange={handleChange}
-                    required
-                    aria-describedby="harvestDate-tip"
-                  />
-                  <Tooltip id="harvestDate-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="lat">
-                    {t('catchLog.location.lat')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="lat-tip"
-                      data-tooltip-content={t('catchLog.tooltips.lat')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="lat"
-                    type="number"
-                    name="lat"
-                    value={formData.location.lat}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.lat')}
-                    required
-                    step="any"
-                    aria-describedby="lat-tip"
-                  />
-                  <Tooltip id="lat-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="lng">
-                    {t('catchLog.location.lng')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="lng-tip"
-                      data-tooltip-content={t('catchLog.tooltips.lng')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="lng"
-                    type="number"
-                    name="lng"
-                    value={formData.location.lng}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.lng')}
-                    required
-                    step="any"
-                    aria-describedby="lng-tip"
-                  />
-                  <Tooltip id="lng-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="shelfLife">
-                    {t('catchLog.shelfLife')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="shelfLife-tip"
-                      data-tooltip-content={t('catchLog.tooltips.shelfLife')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="shelfLife"
-                    type="number"
-                    name="shelfLife"
-                    value={formData.shelfLife}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.shelfLife')}
-                    required
-                    min="0"
-                    aria-describedby="shelfLife-tip"
-                  />
-                  <Tooltip id="shelfLife-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="price">
-                    {t('catchLog.price')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="price-tip"
-                      data-tooltip-content={t('catchLog.tooltips.price')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleChange}
-                    placeholder={t('catchLog.placeholders.price')}
-                    required
-                    min="0"
-                    step="0.01"
-                    aria-describedby="price-tip"
-                  />
-                  <Tooltip id="price-tip" />
-                </div>
-                <div>
-                  <Label htmlFor="images">
-                    {t('catchLog.images')}
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      data-tooltip-id="images-tip"
-                      data-tooltip-content={t('catchLog.tooltips.images')}
-                      style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
-                    />
-                  </Label>
-                  <Input
-                    id="images"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    multiple
-                    onChange={handleImageUpload}
-                    required
-                    aria-describedby="images-tip"
-                  />
-                  <Tooltip id="images-tip" />
-                  <ImagePreviews>
-                    {imagePreviews.map((url, index) => (
-                      <PreviewImage
-                        key={index}
-                        src={url}
-                        alt={`${t('catchLog.imagePreview')} ${index + 1}`}
-                        onError={(e) => (e.target.src = '/assets/fallback-image.jpg')}
-                      />
-                    ))}
-                  </ImagePreviews>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    aria-label={loading ? t('catchLog.submitting') : t('catchLog.submit')}
+                    {geoError}
+                  </ErrorMessage>
+                )}
+                {success && (
+                  <SuccessMessage
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    role="alert"
+                    aria-live="polite"
                   >
-                    {loading ? t('catchLog.submitting') : t('catchLog.submit')}
-                  </Button>
-                  <ResetButton
-                    type="button"
-                    onClick={handleReset}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    aria-label={t('catchLog.reset')}
-                  >
-                    {t('catchLog.reset')}
-                  </ResetButton>
-                </div>
-              </Form>
-            </FormWrapper>
-          </MainContent>
-        </AdminContainer>
+                    {success}
+                  </SuccessMessage>
+                )}
+              </AnimatePresence>
+              <FormGroup>
+                <Label htmlFor="species">
+                  {t('catchLog.species')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="species-tip"
+                    data-tooltip-content={t('catchLog.tooltips.species')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Select
+                  id="species"
+                  name="species"
+                  value={formData.species}
+                  onChange={handleChange}
+                  required
+                  aria-describedby="species-tip"
+                >
+                  <option value="">{t('catchLog.placeholders.species')}</option>
+                  <option value="Tilapia">{t('catchLog.speciesOptions.tilapia')}</option>
+                  <option value="Nile Perch">{t('catchLog.speciesOptions.nilePerch')}</option>
+                  <option value="Dagaa">{t('catchLog.speciesOptions.dagaa')}</option>
+                </Select>
+                <Tooltip id="species-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="dryingMethod">
+                  {t('catchLog.dryingMethod')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="dryingMethod-tip"
+                    data-tooltip-content={t('catchLog.tooltips.dryingMethod')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Select
+                  id="dryingMethod"
+                  name="dryingMethod"
+                  value={formData.dryingMethod}
+                  onChange={handleChange}
+                  required
+                  aria-describedby="dryingMethod-tip"
+                >
+                  <option value="">{t('catchLog.placeholders.dryingMethod')}</option>
+                  <option value="Sun">{t('catchLog.dryingMethods.sun')}</option>
+                  <option value="Solar">{t('catchLog.dryingMethods.solar')}</option>
+                  <option value="Smoke">{t('catchLog.dryingMethods.smoke')}</option>
+                </Select>
+                <Tooltip id="dryingMethod-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="batchSize">
+                  {t('catchLog.batchSize')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="batchSize-tip"
+                    data-tooltip-content={t('catchLog.tooltips.batchSize')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="batchSize"
+                  type="number"
+                  name="batchSize"
+                  value={formData.batchSize}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.batchSize')}
+                  required
+                  min="0"
+                  step="0.1"
+                  aria-describedby="batchSize-tip"
+                />
+                <Tooltip id="batchSize-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="weight">
+                  {t('catchLog.weight')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="weight-tip"
+                    data-tooltip-content={t('catchLog.tooltips.weight')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  name="weight"
+                  value={formData.weight}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.weight')}
+                  required
+                  min="0"
+                  step="0.1"
+                  aria-describedby="weight-tip"
+                />
+                <Tooltip id="weight-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="harvestDate">
+                  {t('catchLog.harvestDate')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="harvestDate-tip"
+                    data-tooltip-content={t('catchLog.tooltips.harvestDate')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="harvestDate"
+                  type="date"
+                  name="harvestDate"
+                  value={formData.harvestDate}
+                  onChange={handleChange}
+                  required
+                  aria-describedby="harvestDate-tip"
+                />
+                <Tooltip id="harvestDate-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="lat">
+                  {t('catchLog.location.lat')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="lat-tip"
+                    data-tooltip-content={t('catchLog.tooltips.lat')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="lat"
+                  type="number"
+                  name="lat"
+                  value={formData.location.lat}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.lat')}
+                  required
+                  step="any"
+                  aria-describedby="lat-tip"
+                />
+                <Tooltip id="lat-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="lng">
+                  {t('catchLog.location.lng')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="lng-tip"
+                    data-tooltip-content={t('catchLog.tooltips.lng')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="lng"
+                  type="number"
+                  name="lng"
+                  value={formData.location.lng}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.lng')}
+                  required
+                  step="any"
+                  aria-describedby="lng-tip"
+                />
+                <Tooltip id="lng-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="shelfLife">
+                  {t('catchLog.shelfLife')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="shelfLife-tip"
+                    data-tooltip-content={t('catchLog.tooltips.shelfLife')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="shelfLife"
+                  type="number"
+                  name="shelfLife"
+                  value={formData.shelfLife}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.shelfLife')}
+                  required
+                  min="0"
+                  aria-describedby="shelfLife-tip"
+                />
+                <Tooltip id="shelfLife-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="price">
+                  {t('catchLog.price')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="price-tip"
+                    data-tooltip-content={t('catchLog.tooltips.price')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="price"
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder={t('catchLog.placeholders.price')}
+                  required
+                  min="0"
+                  step="0.01"
+                  aria-describedby="price-tip"
+                />
+                <Tooltip id="price-tip" />
+              </FormGroup>
+              <FormGroup>
+                <Label htmlFor="images">
+                  {t('catchLog.images')}
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    data-tooltip-id="images-tip"
+                    data-tooltip-content={t('catchLog.tooltips.images')}
+                    style={{ cursor: 'pointer', color: theme.textSecondary || '#6B7280' }}
+                  />
+                </Label>
+                <Input
+                  id="images"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  onChange={handleImageUpload}
+                  required
+                  aria-describedby="images-tip"
+                />
+                <Tooltip id="images-tip" />
+                <ImagePreviews>
+                  {imagePreviews.map((url, index) => (
+                    <PreviewImage
+                      key={index}
+                      src={url}
+                      alt={`${t('catchLog.imagePreview')} ${index + 1}`}
+                      onError={(e) => (e.target.src = '/assets/fallback-image.jpg')}
+                    />
+                  ))}
+                </ImagePreviews>
+              </FormGroup>
+              <div style={{ display: 'flex', gap: clampFontSize(0.5, 2, 0.75), justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label={loading ? t('catchLog.submitting') : t('catchLog.submit')}
+                >
+                  {loading ? t('catchLog.submitting') : t('catchLog.submit')}
+                </Button>
+                <ResetButton
+                  type="button"
+                  onClick={handleReset}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label={t('catchLog.reset')}
+                >
+                  {t('catchLog.reset')}
+                </ResetButton>
+              </div>
+            </Form>
+          </CatchLogCard>
+        </CatchLogWrapper>
       </motion.div>
     </AnimatePresence>
   );

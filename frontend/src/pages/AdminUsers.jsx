@@ -2,16 +2,17 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUsers, faFish, faShoppingCart, faSignOutAlt, faBars, faSearch, faInfoCircle, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { Tooltip } from 'react-tooltip';
-import { useAuth } from '../context/AuthContext';
+import { useAuth} from '../context/AuthContext';
+import api from '../utils/api'; // Import api from new utility file
 import { ThemeContext } from '../context/ThemeContext';
 import * as Sentry from '@sentry/react';
 
-// Styled Components (aligned with Dashboard.jsx, Market.jsx, Profile.jsx)
-const AdminContainer = styled.div`
+// Styled Components
+const AdminContainer = styled(motion.create('div'))`
   display: flex;
   min-height: 100vh;
   background: ${({ theme }) => theme.background || '#F1F5F9'};
@@ -19,7 +20,7 @@ const AdminContainer = styled.div`
   overflow-x: hidden;
 `;
 
-const Sidebar = styled(motion.aside)`
+const Sidebar = styled(motion.create('aside'))`
   width: 250px;
   background: ${({ theme }) => theme.primary || '#1E3A8A'};
   color: white;
@@ -39,7 +40,7 @@ const Sidebar = styled(motion.aside)`
   }
 `;
 
-const SidebarLink = styled(motion.div)`
+const SidebarLink = styled(motion.create(Link))`
   padding: 0.75rem;
   border-radius: 8px;
   display: flex;
@@ -54,13 +55,28 @@ const SidebarLink = styled(motion.div)`
   }
 `;
 
-const MainContent = styled.main`
+const SidebarButton = styled(motion.create('div'))`
+  padding: 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: clamp(0.9rem, 2vw, 1rem);
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+`;
+
+const MainContent = styled(motion.create('main'))`
   flex: 1;
   padding: clamp(1rem, 3vw, 2rem);
   background: ${({ theme }) => theme.background || '#F1F5F9'};
 `;
 
-const Header = styled.header`
+const Header = styled(motion.create('header'))`
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -71,7 +87,7 @@ const Header = styled.header`
   border-radius: 8px;
 `;
 
-const MenuButton = styled(motion.button)`
+const MenuButton = styled(motion.create('button'))`
   display: none;
   background: none;
   border: none;
@@ -83,13 +99,13 @@ const MenuButton = styled(motion.button)`
   }
 `;
 
-const Title = styled.h1`
+const Title = styled(motion.create('h1'))`
   font-size: clamp(1.2rem, 3vw, 1.5rem);
   color: ${({ theme }) => theme.text || '#1E3A8A'};
   margin: 0;
 `;
 
-const UserInfo = styled.div`
+const UserInfo = styled(motion.create('div'))`
   display: flex;
   align-items: center;
   gap: clamp(0.5rem, 2vw, 1rem);
@@ -97,7 +113,7 @@ const UserInfo = styled.div`
   color: ${({ theme }) => theme.text || '#1E3A8A'};
 `;
 
-const LogoutButton = styled(motion.button)`
+const LogoutButton = styled(motion.create('button'))`
   background: none;
   border: none;
   color: ${({ theme }) => theme.primary || '#3B82F6'};
@@ -108,7 +124,7 @@ const LogoutButton = styled(motion.button)`
   gap: 0.5rem;
 `;
 
-const SearchBar = styled.div`
+const SearchBar = styled(motion.create('div'))`
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -128,7 +144,7 @@ const SearchInput = styled.input`
   font-size: clamp(0.9rem, 2vw, 1rem);
 `;
 
-const TableWrapper = styled.div`
+const TableWrapper = styled(motion.create('div'))`
   background: white;
   padding: clamp(1rem, 2vw, 1.5rem);
   border-radius: 8px;
@@ -159,7 +175,7 @@ const Td = styled.td`
   font-size: clamp(0.85rem, 2vw, 0.95rem);
 `;
 
-const AvatarWrapper = styled.div`
+const AvatarWrapper = styled(motion.create('div'))`
   width: 40px;
   height: 40px;
   position: relative;
@@ -175,7 +191,7 @@ const Avatar = styled.img`
   display: block;
 `;
 
-const ActionButton = styled(motion.button)`
+const ActionButton = styled(motion.create('button'))`
   padding: 0.5rem 1rem;
   background: ${({ theme, isDelete }) => (isDelete ? '#EF4444' : theme.primary || '#3B82F6')};
   color: white;
@@ -193,14 +209,14 @@ const ActionButton = styled(motion.button)`
   }
 `;
 
-const ErrorMessage = styled(motion.p)`
+const ErrorMessage = styled(motion.create('p'))`
   color: #EF4444;
   font-size: clamp(0.8rem, 2vw, 0.875rem);
   text-align: center;
   margin-bottom: clamp(0.5rem, 2vw, 1rem);
 `;
 
-const ModalOverlay = styled(motion.div)`
+const ModalOverlay = styled(motion.create('div'))`
   position: fixed;
   top: 0;
   left: 0;
@@ -213,7 +229,7 @@ const ModalOverlay = styled(motion.div)`
   z-index: 1000;
 `;
 
-const ModalContent = styled(motion.div)`
+const ModalContent = styled(motion.create('div'))`
   background: white;
   padding: clamp(1.5rem, 3vw, 2rem);
   border-radius: 8px;
@@ -222,7 +238,7 @@ const ModalContent = styled(motion.div)`
   text-align: center;
 `;
 
-const ModalButton = styled(motion.button)`
+const ModalButton = styled(motion.create('button'))`
   padding: 0.5rem 1rem;
   margin: 0 0.5rem;
   border: none;
@@ -239,14 +255,14 @@ const ModalButton = styled(motion.button)`
   }
 `;
 
-const Pagination = styled.div`
+const Pagination = styled(motion.create('div'))`
   display: flex;
   justify-content: center;
   gap: 0.5rem;
   margin-top: clamp(0.5rem, 2vw, 1rem);
 `;
 
-const PageButton = styled(motion.button)`
+const PageButton = styled(motion.create('button'))`
   padding: 0.5rem 1rem;
   background: ${({ active, theme }) => (active ? theme.primary : '#E5E7EB')};
   color: ${({ active }) => (active ? 'white' : '#1F2937')};
@@ -260,7 +276,6 @@ const PageButton = styled(motion.button)`
   }
 `;
 
-// Animation Variants
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -276,7 +291,7 @@ const modalVariants = {
 const AdminUsers = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, supabase, isOnline, logout } = useAuth();
+  const { user, loading: authLoading, error: authError, isOnline, logout } = useAuth();
   const { theme } = useContext(ThemeContext);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -286,38 +301,40 @@ const AdminUsers = () => {
   const [modal, setModal] = useState({ open: false, type: '', data: null });
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'email', direction: 'asc' });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const itemsPerPage = 5;
 
-  useEffect(() => {
-    if (!user || user.user_metadata.role !== 'admin') {
-      navigate('/');
-      return;
-    }
+  if (authLoading) {
+    return <div>{t('dashboard.loading')}</div>;
+  }
 
+  if (!user || !user.role || user.role !== 'admin') {
+    navigate('/');
+    return null;
+  }
+
+  useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       setError('');
       try {
         if (isOnline) {
-          const { data, error } = await supabase
-            .from('profiles') // Updated to 'profiles' to align with Profile.jsx
-            .select('id, email, role, national_id, name, avatar');
-          if (error) throw error;
-          setUsers(data);
-          setFilteredUsers(data);
+          const response = await api.get('/users');
+          setUsers(response.data);
+          setFilteredUsers(response.data);
         } else {
           setError(t('dashboard.errors.offline'));
         }
       } catch (error) {
         Sentry.captureException(error);
-        setError(t('dashboard.errors.generic'));
+        setError(error.response?.data?.message || t('dashboard.errors.generic'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchUsers();
-  }, [user, supabase, isOnline, navigate, t]);
+  }, [user, isOnline, t]);
 
   useEffect(() => {
     const filtered = users.filter(
@@ -351,8 +368,7 @@ const AdminUsers = () => {
   const handleDeleteUser = async (userId) => {
     try {
       if (isOnline) {
-        const { error } = await supabase.from('profiles').delete().eq('id', userId);
-        if (error) throw error;
+        await api.delete(`/users/${userId}`);
         setUsers(users.filter((u) => u.id !== userId));
         setFilteredUsers(filteredUsers.filter((u) => u.id !== userId));
         setModal({ open: false, type: '', data: null });
@@ -361,7 +377,7 @@ const AdminUsers = () => {
       }
     } catch (error) {
       Sentry.captureException(error);
-      setError(t('dashboard.errors.generic'));
+      setError(error.response?.data?.message || t('dashboard.errors.generic'));
     }
   };
 
@@ -378,220 +394,217 @@ const AdminUsers = () => {
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
   return (
-    <AnimatePresence>
-      <motion.div
-        variants={pageVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={{ duration: 0.3 }}
-      >
-        <AdminContainer theme={theme}>
-          <Sidebar
-            initial={{ x: -250 }}
-            animate={{ x: isSidebarOpen ? 0 : -250 }}
-            transition={{ duration: 0.3 }}
-            isOpen={isSidebarOpen}
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ duration: 0.3 }}
+    >
+      <AdminContainer theme={theme}>
+        <Sidebar
+          initial={{ x: -250 }}
+          animate={{ x: isSidebarOpen ? 0 : -250 }}
+          transition={{ duration: 0.3 }}
+          isOpen={isSidebarOpen}
+        >
+          <motion.h2
+            whileHover={{ scale: 1.05 }}
+            style={{ marginBottom: '1rem', fontSize: 'clamp(1.2rem, 3vw, 1.5rem)' }}
           >
-            <motion.h2
+            {t('Admin Dashboard')}
+          </motion.h2>
+          <SidebarLink to="/dashboard" onClick={() => setIsSidebarOpen(false)}>
+            <FontAwesomeIcon icon={faUsers} /> {t('Dashboard')}
+          </SidebarLink>
+          <SidebarLink to="/admin/users" onClick={() => setIsSidebarOpen(false)}>
+            <FontAwesomeIcon icon={faUsers} /> {t('Manage Users')}
+          </SidebarLink>
+          <SidebarLink to="/admin/catch-logs" onClick={() => setIsSidebarOpen(false)}>
+            <FontAwesomeIcon icon={faFish} /> {t('Catch Logs')}
+          </SidebarLink>
+          <SidebarLink to="/admin/market" onClick={() => setIsSidebarOpen(false)}>
+            <FontAwesomeIcon icon={faShoppingCart} /> {t('Market')}
+          </SidebarLink>
+          <SidebarLink to="/profile" onClick={() => setIsSidebarOpen(false)}>
+            <FontAwesomeIcon icon={faUsers} /> {t('Profile')}
+          </SidebarLink>
+          <SidebarButton
+            onClick={() => {
+              logout();
+              navigate('/login');
+              setIsSidebarOpen(false);
+            }}
+          >
+            <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
+          </SidebarButton>
+        </Sidebar>
+        <MainContent>
+          <Header>
+            <MenuButton
               whileHover={{ scale: 1.05 }}
-              style={{ marginBottom: '1rem', fontSize: 'clamp(1.2rem, 3vw, 1.5rem)' }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
-              {t('Admin Dashboard')}
-            </motion.h2>
-            <SidebarLink as={Link} to="/dashboard" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Dashboard')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/users" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Manage Users')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/catch-logs" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faFish} /> {t('Catch Logs')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/admin/market" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faShoppingCart} /> {t('Market')}
-            </SidebarLink>
-            <SidebarLink as={Link} to="/profile" whileHover={{ scale: 1.05 }} onClick={() => setIsSidebarOpen(false)}>
-              <FontAwesomeIcon icon={faUsers} /> {t('Profile')}
-            </SidebarLink>
-            <SidebarLink
-              whileHover={{ scale: 1.05 }}
-              onClick={() => {
-                logout();
-                navigate('/login');
-                setIsSidebarOpen(false);
-              }}
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
-            </SidebarLink>
-          </Sidebar>
-          <MainContent>
-            <Header>
-              <MenuButton
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              >
-                <FontAwesomeIcon icon={faBars} />
-              </MenuButton>
-              <Title>{t('Manage Users')}</Title>
-              <UserInfo>
-                {user?.user_metadata?.name} ({user?.user_metadata?.role})
-                <LogoutButton whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => logout()}>
-                  <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
-                </LogoutButton>
-              </UserInfo>
-            </Header>
-            {error && (
-              <ErrorMessage
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                role="alert"
-              >
-                {error}
-              </ErrorMessage>
-            )}
-            {loading && <p>{t('dashboard.loading')}</p>}
-            <SearchBar>
-              <FontAwesomeIcon icon={faSearch} />
-              <SearchInput
-                type="text"
-                placeholder={t('Search users...')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label={t('Search users')}
-              />
-            </SearchBar>
-            <TableWrapper>
-              <h3 style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.25rem)' }}>{t('Users')}</h3>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>{t('Avatar')}</Th>
-                    <Th onClick={() => handleSort('id')}>
-                      {t('dashboard.userId')} {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                    </Th>
-                    <Th onClick={() => handleSort('name')}>
-                      {t('dashboard.name')} {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                    </Th>
-                    <Th onClick={() => handleSort('email')}>
-                      {t('dashboard.email')} {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                    </Th>
-                    <Th onClick={() => handleSort('national_id')}>
-                      {t('National ID')} {sortConfig.key === 'national_id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                    </Th>
-                    <Th onClick={() => handleSort('role')}>
-                      {t('dashboard.role')} {sortConfig.key === 'role' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                    </Th>
-                    <Th>{t('dashboard.actions')}</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedUsers.map((u) => (
-                    <tr key={u.id}>
-                      <Td>
-                        <AvatarWrapper>
-                          <Avatar
-                            src={u.avatar || '/assets/fallback-avatar.jpg'}
-                            alt={t('profile.avatarAlt', { name: u.name || 'User' })}
-                            onError={(e) => (e.target.src = '/assets/fallback-avatar.jpg')}
-                          />
-                        </AvatarWrapper>
-                      </Td>
-                      <Td>{u.id}</Td>
-                      <Td>{u.name || 'N/A'}</Td>
-                      <Td>{u.email}</Td>
-                      <Td>{u.national_id || 'N/A'}</Td>
-                      <Td>{u.role}</Td>
-                      <Td>
-                        <ActionButton
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleEditUser(u)}
-                          aria-label={t('Edit user')}
-                        >
-                          <FontAwesomeIcon icon={faEdit} /> {t('Edit')}
-                        </ActionButton>
-                        <ActionButton
-                          isDelete
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setModal({ open: true, type: 'delete', data: u.id })}
-                          aria-label={t('Delete user')}
-                        >
-                          <FontAwesomeIcon icon={faTrash} /> {t('Delete')}
-                        </ActionButton>
-                        <FontAwesomeIcon
-                          icon={faInfoCircle}
-                          data-tooltip-id={`user-${u.id}`}
-                          style={{ marginLeft: '0.5rem', cursor: 'pointer' }}
-                          aria-label={t('View user details')}
-                        />
-                        <Tooltip id={`user-${u.id}`} place="top" content={JSON.stringify(u, null, 2)} />
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-              <Pagination>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <PageButton
-                    key={page}
-                    active={currentPage === page}
-                    onClick={() => setCurrentPage(page)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    aria-label={t('Page {{page}}', { page })}
-                  >
-                    {page}
-                  </PageButton>
-                ))}
-              </Pagination>
-            </TableWrapper>
-          </MainContent>
-          {modal.open && (
-            <ModalOverlay
+              <FontAwesomeIcon icon={faBars} />
+            </MenuButton>
+            <Title>{t('Manage Users')}</Title>
+            <UserInfo>
+              {user?.name || 'Unknown User'} ({user?.role || 'Unknown Role'})
+              <LogoutButton whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => logout()}>
+                <FontAwesomeIcon icon={faSignOutAlt} /> {t('Logout')}
+              </LogoutButton>
+            </UserInfo>
+          </Header>
+          {(authError || error) && (
+            <ErrorMessage
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              role="alert"
             >
-              <ModalContent
-                variants={modalVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.3 }}
-              >
-                <h3 style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.25rem)' }}>
-                  {modal.type === 'delete'
-                    ? t('dashboard.confirmDelete')
-                    : t('dashboard.confirmEdit')}
-                </h3>
-                <div>
-                  <ModalButton
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => (modal.type === 'delete' ? handleDeleteUser(modal.data) : handleEditUser(modal.data))}
-                    aria-label={t('Confirm')}
-                  >
-                    {t('Confirm')}
-                  </ModalButton>
-                  <ModalButton
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setModal({ open: false, type: '', data: null })}
-                    aria-label={t('Cancel')}
-                  >
-                    {t('Cancel')}
-                  </ModalButton>
-                </div>
-              </ModalContent>
-            </ModalOverlay>
+              {authError || error}
+            </ErrorMessage>
           )}
-        </AdminContainer>
-      </motion.div>
-    </AnimatePresence>
+          {loading && <p>{t('dashboard.loading')}</p>}
+          <SearchBar>
+            <FontAwesomeIcon icon={faSearch} />
+            <SearchInput
+              type="text"
+              placeholder={t('Search users...')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('Search users')}
+            />
+          </SearchBar>
+          <TableWrapper>
+            <h3 style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.25rem)' }}>{t('Users')}</h3>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>{t('Avatar')}</Th>
+                  <Th onClick={() => handleSort('id')}>
+                    {t('dashboard.userId')} {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Th>
+                  <Th onClick={() => handleSort('name')}>
+                    {t('dashboard.name')} {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Th>
+                  <Th onClick={() => handleSort('email')}>
+                    {t('dashboard.email')} {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Th>
+                  <Th onClick={() => handleSort('national_id')}>
+                    {t('National ID')} {sortConfig.key === 'national_id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Th>
+                  <Th onClick={() => handleSort('role')}>
+                    {t('dashboard.role')} {sortConfig.key === 'role' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Th>
+                  <Th>{t('dashboard.actions')}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedUsers.map((u) => (
+                  <tr key={u.id}>
+                    <Td>
+                      <AvatarWrapper>
+                        <Avatar
+                          src={u.avatar || '/assets/fallback-avatar.jpg'}
+                          alt={t('profile.avatarAlt', { name: u.name || 'User' })}
+                          onError={(e) => (e.target.src = '/assets/fallback-avatar.jpg')}
+                        />
+                      </AvatarWrapper>
+                    </Td>
+                    <Td>{u.id}</Td>
+                    <Td>{u.name || 'N/A'}</Td>
+                    <Td>{u.email}</Td>
+                    <Td>{u.national_id || 'N/A'}</Td>
+                    <Td>{u.role}</Td>
+                    <Td>
+                      <ActionButton
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleEditUser(u)}
+                        aria-label={t('Edit user')}
+                      >
+                        <FontAwesomeIcon icon={faEdit} /> {t('Edit')}
+                      </ActionButton>
+                      <ActionButton
+                        isDelete
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setModal({ open: true, type: 'delete', data: u.id })}
+                        aria-label={t('Delete user')}
+                      >
+                        <FontAwesomeIcon icon={faTrash} /> {t('Delete')}
+                      </ActionButton>
+                      <FontAwesomeIcon
+                        icon={faInfoCircle}
+                        data-tooltip-id={`user-${u.id}`}
+                        style={{ marginLeft: '0.5rem', cursor: 'pointer' }}
+                        aria-label={t('View user details')}
+                      />
+                      <Tooltip id={`user-${u.id}`} place="top" content={JSON.stringify(u, null, 2)} />
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <Pagination>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PageButton
+                  key={page}
+                  active={currentPage === page}
+                  onClick={() => setCurrentPage(page)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label={t('Page {{page}}', { page })}
+                >
+                  {page}
+                </PageButton>
+              ))}
+            </Pagination>
+          </TableWrapper>
+        </MainContent>
+        {modal.open && (
+          <ModalOverlay
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <ModalContent
+              variants={modalVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3 }}
+            >
+              <h3 style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.25rem)' }}>
+                {modal.type === 'delete'
+                  ? t('dashboard.confirmDelete')
+                  : t('dashboard.confirmEdit')}
+              </h3>
+              <div>
+                <ModalButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => (modal.type === 'delete' ? handleDeleteUser(modal.data) : handleEditUser(modal.data))}
+                  aria-label={t('Confirm')}
+                >
+                  {t('Confirm')}
+                </ModalButton>
+                <ModalButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setModal({ open: false, type: '', data: null })}
+                  aria-label={t('Cancel')}
+                >
+                  {t('Cancel')}
+                </ModalButton>
+              </div>
+            </ModalContent>
+          </ModalOverlay>
+        )}
+      </AdminContainer>
+    </motion.div>
   );
 };
 

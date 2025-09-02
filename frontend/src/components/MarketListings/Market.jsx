@@ -1,152 +1,122 @@
-// frontend/src/pages/Market.jsx
-import React, { useState, useEffect, useContext } from 'react';
-import styled from 'styled-components';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
-import { ThemeContext } from '../context/ThemeContext';
+import styled from 'styled-components';
+import { motion } from 'framer-motion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faShoppingCart } from '@fortawesome/free-solid-svg-icons';
+import { useAuth, api } from '../../context/AuthContext';
 import * as Sentry from '@sentry/react';
 
-const MarketWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+const MarketContainer = styled.div`
+  padding: clamp(1rem, 3vw, 2rem);
+  background: ${({ theme }) => theme.background || '#F1F5F9'};
   min-height: 100vh;
-  background-color: ${({ theme }) => theme.colors.background};
-  padding: 2rem;
 `;
 
-const ListingCard = styled.div`
-  background: ${({ theme }) => theme.colors.card};
-  padding: 1.5rem;
+const Title = styled.h1`
+  font-size: clamp(1.2rem, 3vw, 1.5rem);
+  color: ${({ theme }) => theme.text || '#1E3A8A'};
+  margin-bottom: clamp(1rem, 3vw, 2rem);
+`;
+
+const ProductList = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+`;
+
+const ProductCard = styled(motion.div)`
+  background: white;
+  padding: clamp(1rem, 2vw, 1.5rem);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 600px;
-  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 `;
 
-const ListingImage = styled.img`
-  max-width: 100%;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-`;
-
-const ListingTitle = styled.h3`
-  font-size: 1.25rem;
-  color: ${({ theme }) => theme.colors.text};
-  margin: 0 0 0.5rem;
-`;
-
-const ListingDetail = styled.p`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  margin: 0.25rem 0;
-`;
-
-const ErrorMessage = styled.p`
-  color: red;
-  font-size: 0.875rem;
-  margin: 0;
+const ErrorMessage = styled(motion.p)`
+  color: #EF4444;
+  font-size: clamp(0.8rem, 2vw, 0.875rem);
   text-align: center;
+  margin-bottom: clamp(0.5rem, 2vw, 1rem);
 `;
 
-const validateListing = (listing) => {
-  const errors = [];
-  if (!listing?.species || typeof listing.species !== 'string' || listing.species.trim() === '') {
-    errors.push('Invalid or missing species');
-  }
-  if (!listing?.weight || typeof listing.weight !== 'number' || listing.weight <= 0) {
-    errors.push('Weight must be a positive number');
-  }
-  if (!listing?.price || typeof listing.price !== 'number' || listing.price <= 0) {
-    errors.push('Price must be a positive number');
-  }
-  if (
-    !listing?.quality_score ||
-    typeof listing.quality_score !== 'number' ||
-    listing.quality_score < 0 ||
-    listing.quality_score > 1
-  ) {
-    errors.push('Quality score must be between 0 and 1');
-  }
-  if (!Array.isArray(listing?.image_urls)) {
-    listing.image_urls = []; // Ensure image_urls is an array
-  }
-  if (errors.length > 0) {
-    Sentry.captureMessage('Invalid catch_log data', { extra: { listing, errors } });
-  }
-  return errors.length > 0 ? errors : null;
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
 };
 
 const Market = () => {
   const { t } = useTranslation();
-  const { supabase, isOnline } = useAuth();
-  const { colors } = useContext(ThemeContext);
-  const [listings, setListings] = useState([]);
+  const { isOnline } = useAuth();
+  const [products, setProducts] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchListings = async () => {
+    const fetchProducts = async () => {
       setLoading(true);
       setError('');
-
       try {
         if (isOnline) {
-          const { data, error: dbError } = await supabase
-            .from('catch_logs')
-            .select('*')
-            .order('created_at', { ascending: false });
-          if (dbError) throw dbError;
-
-          const validListings = data.filter((listing) => !validateListing(listing));
-          if (validListings.length < data.length) {
-            setError(t('market.errors.invalidData'));
-          }
-          setListings(validListings);
+          const response = await api.get('/catch-logs', { params: { status: 'approved' } });
+          setProducts(response.data);
         } else {
           setError(t('market.errors.offline'));
         }
       } catch (error) {
         Sentry.captureException(error);
-        setError(error.message || t('market.errors.generic'));
+        setError(error.response?.data?.message || t('market.errors.generic'));
       } finally {
         setLoading(false);
       }
     };
-
-    fetchListings();
-  }, [supabase, isOnline, t]);
+    fetchProducts();
+  }, [isOnline, t]);
 
   return (
-    <MarketWrapper theme={colors}>
-      <h2>{t('market.title')}</h2>
-      {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
-      {loading && <p>{t('market.loading')}</p>}
-      {listings.map((listing) => (
-        <ListingCard key={listing.batch_id} theme={colors}>
-          <ListingTitle>
-            {t('market.listingTitle', { species: listing.species, batchId: listing.batch_id })}
-          </ListingTitle>
-          {listing.image_urls && listing.image_urls[0] ? (
-            <ListingImage
-              src={listing.image_urls[0]}
-              alt={t('market.imageAlt', { species: listing.species })}
-              onError={(e) => (e.target.src = './images/fallback-fish.jpg')}
-            />
-          ) : (
-            <ListingImage
-              src="/images/fallback-fish.jpg"
-              alt={t('market.imageAlt', { species: listing.species })}
-            />
-          )}
-          <ListingDetail>{t('market.weight', { weight: listing.weight })}</ListingDetail>
-          <ListingDetail>{t('market.price', { price: listing.price })}</ListingDetail>
-          <ListingDetail>
-            {t('market.qualityScore', { score: (listing.quality_score * 100).toFixed(2) })}
-          </ListingDetail>
-        </ListingCard>
-      ))}
-    </MarketWrapper>
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ duration: 0.3 }}
+    >
+      <MarketContainer>
+        <Title>{t('Market')}</Title>
+        {(error) && (
+          <ErrorMessage
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            role="alert"
+          >
+            {error}
+          </ErrorMessage>
+        )}
+        {loading && <p>{t('market.loading')}</p>}
+        <ProductList>
+          {products.map((product) => (
+            <ProductCard
+              key={product.batch_id}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <h3>{product.species}</h3>
+              <p>{t('Price')}: ${product.price}</p>
+              <p>{t('Weight')}: {product.weight} kg</p>
+              <p>{t('Quality Score')}: {product.quality_score}</p>
+              {product.image_urls && product.image_urls[0] && (
+                <img
+                  src={product.image_urls[0]}
+                  alt={t('profile.avatarAlt', { name: product.species })}
+                  style={{ maxWidth: '100%', borderRadius: '8px' }}
+                />
+              )}
+            </ProductCard>
+          ))}
+        </ProductList>
+      </MarketContainer>
+    </motion.div>
   );
 };
 
